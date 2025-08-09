@@ -11,9 +11,9 @@
   *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
   html, body{ height:100%; margin:0; background:var(--bg); color:var(--ink); font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
   #app{ position:fixed; inset:0; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display:grid; grid-template-rows:auto 1fr auto; gap:0; }
-  header{ display:flex; gap:.4rem; align-items:center; padding:.35rem .6rem; justify-content:space-between; }
-  .hud{ display:flex; gap:.35rem; align-items:center; flex:1 1 auto; min-width:0; }
-  .pill{ background:var(--glass); border:2px solid #cde9d1; border-radius:14px; padding:.18rem .5rem; box-shadow:0 4px 16px rgba(0,0,0,.05); font-size:clamp(.85rem, 2.6vw, 1rem); }
+  header{ display:flex; gap:.5rem; align-items:center; padding:.35rem .65rem; }
+  .hud{ display:flex; gap:.4rem; font-weight:800; flex-wrap:wrap; align-items:center; }
+  .pill{ background:var(--glass); border:2px solid #cde9d1; border-radius:999px; padding:.22rem .55rem; box-shadow:0 4px 16px rgba(0,0,0,.05); }
   .iconbtn{ border:none; border-radius:12px; background:#fff; border:2px solid #cfe7d3; width:40px; height:40px; font-size:1.1rem; box-shadow:0 3px 0 #c7e5d3; }
   .iconbtn:active{ transform:translateY(1px); box-shadow:0 2px 0 #c7e5d3; }
 
@@ -44,8 +44,8 @@
   footer{ padding: .1rem .65rem .45rem; text-align:center; font-size:.85rem; color:#4f6b50; }
 
   /* Layout polish: keep stats left, controls right */
-  header{ display:flex; gap:.4rem; align-items:center; padding:.35rem .6rem; justify-content:space-between; }
-  .hud{ display:flex; gap:.35rem; align-items:center; flex:1 1 auto; min-width:0; }
+  header{ justify-content: space-between; }
+  .hud{ width:100%; }
   .hud > button:first-of-type{ margin-left:auto; }
   .hud > button + button{ margin-left:.4rem; }
 
@@ -55,7 +55,9 @@
 <div id="app">
   <header>
     <div class="hud">
-      <div class="pill" id="stats">P: <span id="score">0</span> · L: <span id="level">1</span> · Hi: <span id="hi">0</span></div>
+      <div class="pill">Punkte: <span id="score">0</span></div>
+      <div class="pill">Level: <span id="level">1</span></div>
+      <div class="pill">Highscore: <span id="hi">0</span></div>
       <button id="soundBtn" class="iconbtn" title="Sound an/aus" aria-label="Sound umschalten">🔊</button>
       <button id="restartBtn" class="iconbtn" title="Neu starten" aria-label="Neu starten">🔄</button>
     </div>
@@ -103,13 +105,6 @@
   let nextHen = 1;
   let soundOn = true;
 
-  let nextWorm = 0; // alternates worm sfx between corn and hen1
-  function playHen2(){ if(!soundOn) return; try{ hen2Sfx.currentTime=0; hen2Sfx.play(); }catch(e){} }
-  function playWormAlt(){ if(!soundOn) return; try{ const s = (nextWorm===0?cornSfx:hen1Sfx); nextWorm = 1-nextWorm; s.currentTime=0; s.play(); }catch(e){} }
-
-  // Autoplay: sofort versuchen, zusätzlich beim ersten User-Event & beim Startbutton
-  tryPlayMusic();
-
   async function tryPlayMusic(){ try{ await music.play(); }catch(e){ /* Autoplay evtl. blockiert – startet beim ersten Tap */ } }
   function playCorn(){ if(!soundOn) return; try{ cornSfx.currentTime=0; cornSfx.play(); }catch(e){} }
   function playHen(){ if(!soundOn) return; try{ const s = (nextHen===1?hen1Sfx:hen2Sfx); nextHen = 3-nextHen; s.currentTime=0; s.play(); }catch(e){} }
@@ -134,7 +129,7 @@
   const state = {
     grid: 36, cols: 18, rows: 26,
     hen: {x:4,y:10}, prevHen: {x:4,y:10},
-    dir: {x:1,y:0}, next: {x:1,y:0},
+    dir:{x:1,y:0}, next:{x:1,y:0}, queue:[],
     items: [], // {x,y,type:'grain'|'worm'|'gold'}
     score: 0, level: 1,
     speed: 3.0,   // slower start
@@ -186,12 +181,18 @@
   }
 
   function setDir(x,y){
-    if(x===-state.dir.x && y===-state.dir.y) return;
-    state.next={x,y};
+    // ignore exact reverse of last intended direction (dir or last in queue)
+    const last = state.queue.length ? state.queue[state.queue.length-1] : state.next;
+    if(x===-last.x && y===-last.y) return;
+    // de-dupe consecutive same
+    if(last.x===x && last.y===y) return;
+    // keep a small buffer for snappier turns at high speed
+    if(state.queue.length<2) state.queue.push({x,y});
   }
 
   function advanceCell(){
     state.prevHen = {x: state.hen.x, y: state.hen.y};
+    if(state.queue.length){ state.next = state.queue.shift(); }
     state.dir = state.next;
     const nx = state.hen.x + state.dir.x;
     const ny = state.hen.y + state.dir.y;
