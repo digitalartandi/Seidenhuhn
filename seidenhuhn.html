@@ -11,9 +11,9 @@
   *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
   html, body{ height:100%; margin:0; background:var(--bg); color:var(--ink); font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
   #app{ position:fixed; inset:0; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display:grid; grid-template-rows:auto 1fr auto; gap:0; }
-  header{ display:flex; gap:.4rem; align-items:center; padding:.35rem .6rem; justify-content:space-between; }
+  header{ display:flex; gap:.3rem; align-items:center; padding:.25rem .5rem; justify-content:space-between; }
   .hud{ display:flex; gap:.35rem; align-items:center; flex:1 1 auto; min-width:0; }
-  .pill{ background:var(--glass); border:2px solid #cde9d1; border-radius:14px; padding:.18rem .5rem; box-shadow:0 4px 16px rgba(0,0,0,.05); font-size:clamp(.85rem, 2.6vw, 1rem); }
+  .pill{ background:var(--glass); border:2px solid #cde9d1; border-radius:12px; padding:.1rem .4rem; box-shadow:0 4px 16px rgba(0,0,0,.05); font-size:clamp(.8rem, 2.2vw, .95rem); }
   .iconbtn{ border:none; border-radius:12px; background:#fff; border:2px solid #cfe7d3; width:40px; height:40px; font-size:1.1rem; box-shadow:0 3px 0 #c7e5d3; }
   .iconbtn:active{ transform:translateY(1px); box-shadow:0 2px 0 #c7e5d3; }
 
@@ -44,7 +44,7 @@
   footer{ padding: .1rem .65rem .45rem; text-align:center; font-size:.85rem; color:#4f6b50; }
 
   /* Layout polish: keep stats left, controls right */
-  header{ display:flex; gap:.4rem; align-items:center; padding:.35rem .6rem; justify-content:space-between; }
+  header{ display:flex; gap:.3rem; align-items:center; padding:.25rem .5rem; justify-content:space-between; }
   .hud{ display:flex; gap:.35rem; align-items:center; flex:1 1 auto; min-width:0; }
   .hud > button:first-of-type{ margin-left:auto; }
   .hud > button + button{ margin-left:.4rem; }
@@ -55,7 +55,7 @@
 <div id="app">
   <header>
     <div class="hud">
-      <div class="pill" id="stats">P: <span id="score">0</span> · L: <span id="level">1</span> · Hi: <span id="hi">0</span></div>
+      <div class="pill" id="stats">P: <span id="score">0</span><span id="level" hidden>1</span><span id="hi" hidden>0</span></div>
       <button id="soundBtn" class="iconbtn" title="Sound an/aus" aria-label="Sound umschalten">🔊</button>
       <button id="restartBtn" class="iconbtn" title="Neu starten" aria-label="Neu starten">🔄</button>
     </div>
@@ -96,33 +96,14 @@
 <script>
 (function(){ 'use strict';
   // ------- Audio (aus Repo) -------
-  const music = new Audio('./Introsong.mp3'); music.loop = true; music.volume = 0.55; music.muted = true; (async()=>{ try{ await music.play(); }catch(e){} })();
+  const music = new Audio('./Introsong.mp3'); music.loop = true; music.volume = 0.55;
   const cornSfx = new Audio('./Corn.mp3'); cornSfx.volume = 0.9;
   const hen1Sfx = new Audio('./Huhn1.mp3'); hen1Sfx.volume = 0.9;
   const hen2Sfx = new Audio('./Huhn2.mp3'); hen2Sfx.volume = 0.9;
   let nextHen = 1;
   let soundOn = true;
   // global unlock to unmute music on first interaction
-  const _unlock = ()=>{ try{ music.muted=false; music.play().catch(()=>{}); }catch(_e){} };
-  ['pointerdown','touchstart','click','keydown'].forEach(ev=> window.addEventListener(ev, ()=>{ _unlock(); }, { once:true, passive:true }));
-
-
-  let nextWorm = 0; // alternates worm sfx between corn and hen1
-  function playHen2(){ if(!soundOn) return; try{ hen2Sfx.currentTime=0; hen2Sfx.play(); }catch(e){} }
-  function playWormAlt(){ if(!soundOn) return; try{ const s = (nextWorm===0?cornSfx:hen1Sfx); nextWorm = 1-nextWorm; s.currentTime=0; s.play(); }catch(e){} }
-
-  // Autoplay: sofort versuchen, zusätzlich beim ersten User-Event & beim Startbutton
-  tryPlayMusic();
-
-  async function tryPlayMusic(){ try{ await music.play(); }catch(e){ /* Autoplay evtl. blockiert – startet beim ersten Tap */ } }
-  function playCorn(){ if(!soundOn) return; try{ cornSfx.currentTime=0; cornSfx.play(); }catch(e){} }
-  function playHen(){ if(!soundOn) return; try{ const s = (nextHen===1?hen1Sfx:hen2Sfx); nextHen = 3-nextHen; s.currentTime=0; s.play(); }catch(e){} }
-
-  // ------- Canvas / Game -------
-  const dpr = Math.max(1, window.devicePixelRatio || 1);
-  const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d', {alpha:false});
-  const playArea = document.getElementById('playArea');
+    const playArea = document.getElementById('playArea');
   const frame = document.querySelector('.canvasFrame');
 
   function sizeCanvas(pxW, pxH){
@@ -143,7 +124,8 @@
     score: 0, level: 1,
     speed: 3.0,   // slower start
     last: 0, mover: 0, running: false,
-    hi: parseInt(localStorage.getItem('hh_hi')||'0',10)
+    hi: parseInt(localStorage.getItem('hh_hi')||'0',10),
+    inputQueue: []
   };
   document.getElementById('hi').textContent = state.hi;
 
@@ -189,13 +171,11 @@
     return {x,y,type};
   }
 
-  function setDir(x,y){
-    if(x===-state.dir.x && y===-state.dir.y) return;
-    state.next={x,y};
-  }
+  function setDir(x,y){ if(x===-state.dir.x && y===-state.dir.y) return; if(state.inputQueue.length<2){ state.inputQueue.push({x,y}); } }
 
   function advanceCell(){
     state.prevHen = {x: state.hen.x, y: state.hen.y};
+    if(state.inputQueue.length){ const cand = state.inputQueue.shift(); if(!(cand.x===-state.dir.x && cand.y===-state.dir.y)) state.next=cand; }
     state.dir = state.next;
     const nx = state.hen.x + state.dir.x;
     const ny = state.hen.y + state.dir.y;
@@ -278,7 +258,7 @@
   document.getElementById('menu').addEventListener('click', ()=>{ document.getElementById('over').style.display='none'; document.getElementById('startFS').style.display='flex'; });
   (function(){
   const start = () => {
-    tryPlayMusic(); 
+    try{ music.muted=false; music.currentTime=0; music.play().catch(()=>{}); }catch(_e){}
     const de=document.documentElement; 
     if(de.requestFullscreen){ de.requestFullscreen().catch(()=>{}); }
     document.getElementById('startFS').style.display='none';
@@ -296,9 +276,7 @@
   const sb = document.getElementById('soundBtn');
   sb.addEventListener('click', ()=>{ soundOn=!soundOn; sb.textContent = soundOn?'🔊':'🔇'; try{ if(soundOn) music.play(); else music.pause(); }catch(e){} });
 
-  // Musik sofort im Startscreen versuchen
-  tryPlayMusic();
-
+  
   // On-screen pad
   document.getElementById('pad').addEventListener('pointerdown', (e)=>{ const b=e.target.closest('button'); if(!b) return; const [x,y]=b.getAttribute('data-d').split(',').map(Number); setDir(x,y); });
 
