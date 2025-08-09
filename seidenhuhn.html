@@ -17,13 +17,13 @@
   .iconbtn{ border:none; border-radius:12px; background:#fff; border:2px solid #cfe7d3; width:40px; height:40px; font-size:1.1rem; box-shadow:0 3px 0 #c7e5d3; }
   .iconbtn:active{ transform:translateY(1px); box-shadow:0 2px 0 #c7e5d3; }
 
-  /* FULL BLEED meadow background without border radius or inner padding */
+  /* FULL BLEED meadow background */
   #playArea{ position:relative; overflow:hidden; border:none; border-radius:0; background:url('meadow.webp') center/cover no-repeat; display:grid; place-items:center; }
   .canvasFrame{ position:relative; width:100%; height:100%; display:grid; place-items:center; }
   canvas{ display:block; max-width:100%; max-height:100%; touch-action:none; image-rendering:auto;
           background:linear-gradient(180deg,#f8fff9 0%, #eef7f0 100%); border:1px solid #d6ead7; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.05); }
 
-  /* Wood nav sits tight below, no extra gap */
+  /* Wood nav */
   #uiBar{ position:relative; border-top:2px solid #caa27a; background:url('wood.webp') center/cover no-repeat; display:flex; justify-content:center; align-items:center; padding:.2rem 0 calc(.3rem + env(safe-area-inset-bottom)); }
   #uiBar::before{ content:''; position:absolute; inset:0; background:rgba(255,255,255,.14); pointer-events:none; }
 
@@ -31,24 +31,15 @@
   .pad button{ width:46px; height:46px; border-radius:12px; border:none; background:#fff; border:2px solid #d7efe0; box-shadow:0 3px 0 #c7e5d3; font-size:1rem; }
   .pad .empty{ visibility:hidden; }
 
-  /* Startscreen */
+  /* Startscreen (ohne Partikel, nur Button) */
   #startFS{ position:fixed; inset:0; z-index:9999; display:flex; align-items:flex-end; justify-content:center; background:#000; overflow:hidden; }
-  #startFS::before{ content:''; position:absolute; inset:0; background:url('cover.webp') center/cover no-repeat; filter:none; }
-  #particles{ position:absolute; inset:0; pointer-events:none; }
-  .startBar{ position:relative; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:.5rem;
+  #startFS::before{ content:''; position:absolute; inset:0; background:url('cover.webp') center/cover no-repeat; }
+  .startBar{ position:relative; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
              margin:0 0 calc(1.0rem + env(safe-area-inset-bottom)); z-index:2; }
   #play{ position:relative; padding:1rem 2.2rem; font-size:1.35rem; border:none; border-radius:20px;
          background:linear-gradient(180deg,#ffea7a 0%, #ffb44c 60%, #ff7043 100%);
          color:#2b190e; text-shadow:0 1px 0 rgba(255,255,255,.6); box-shadow:0 14px 28px rgba(255,112,67,.25), 0 6px 0 #d85d37; font-weight:900; letter-spacing:.3px; }
   #play:active{ transform:translateY(2px); box-shadow:0 4px 0 #d85d37; }
-  .playLabel{ color:#fff; font-weight:900; text-shadow:0 2px 10px rgba(0,0,0,.45); }
-
-  #over{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:9000; background:rgba(0,0,0,.35); }
-  .card{ background:#fff; border:2px solid #d6ead7; border-radius:16px; padding:1rem; width:min(90vw,420px); text-align:center; box-shadow:0 16px 40px rgba(0,0,0,.18); }
-  .row{ display:flex; gap:.6rem; justify-content:center; }
-  .btn{ border:none; border-radius:14px; padding:.7rem 1.1rem; font-weight:800; }
-  .btn.primary{ background:#43a047; color:#fff; }
-  .btn.ghost{ background:#fff; border:2px solid #cfe7d3; }
 
   footer{ padding: .1rem .65rem .45rem; text-align:center; font-size:.85rem; color:#4f6b50; }
 </style>
@@ -79,14 +70,12 @@
     </div>
   </div>
 
-  <footer>Für Kinder · Offline spielbar · v1.13.0</footer>
+  <footer>Für Kinder · Offline spielbar · v1.13.2</footer>
 </div>
 
 <div id="startFS">
-  <canvas id="particles"></canvas>
   <div class="startBar">
     <button id="play" aria-label="Spiel starten">Starten</button>
-    <div class="playLabel" aria-hidden="true">Starten</div>
   </div>
 </div>
 
@@ -103,7 +92,7 @@
 
 <script>
 (function(){ 'use strict';
-  // ------- Audio (files from repo) -------
+  // ------- Audio (aus Repo) -------
   const music = new Audio('./Introsong.mp3'); music.loop = true; music.volume = 0.55;
   const cornSfx = new Audio('./Corn.mp3'); cornSfx.volume = 0.9;
   const hen1Sfx = new Audio('./Huhn1.mp3'); hen1Sfx.volume = 0.9;
@@ -111,23 +100,9 @@
   let nextHen = 1;
   let soundOn = true;
 
-  async function tryAutoplay(){ try{ await music.play(); }catch(e){ /* Autoplay kann blockiert sein, startet dann beim ersten Tap */ } }
+  async function tryPlayMusic(){ try{ await music.play(); }catch(e){ /* Autoplay evtl. blockiert – startet beim ersten Tap */ } }
   function playCorn(){ if(!soundOn) return; try{ cornSfx.currentTime=0; cornSfx.play(); }catch(e){} }
-  function playHen(){ if(!soundOn) return; try{ const sfx = (nextHen===1?hen1Sfx:hen2Sfx); nextHen = 3-nextHen; sfx.currentTime=0; sfx.play(); }catch(e){} }
-
-  // ------- Particles (subtle) -------
-  const pCanvas = document.getElementById('particles');
-  const pCtx = pCanvas.getContext('2d');
-  let prAF = 0, particles = [];
-  function pResize(){ const dpr = window.devicePixelRatio||1; pCanvas.width = Math.floor(pCanvas.clientWidth * dpr); pCanvas.height = Math.floor(pCanvas.clientHeight * dpr); }
-  const PCOUNT = 36;
-  function pInit(){ particles = []; const dpr = window.devicePixelRatio||1; const w=pCanvas.width, h=pCanvas.height;
-    for(let i=0;i<PCOUNT;i++){ particles.push({ x: Math.random()*w, y: Math.random()*h, r: (Math.random()*3+1)*dpr, vx:(Math.random()-.5)*0.12*dpr, vy:(Math.random()*.12+0.05)*dpr, a: Math.random()*0.5+0.3 }); } }
-  function pStep(){ const w=pCanvas.width, h=pCanvas.height; pCtx.clearRect(0,0,w,h); pCtx.fillStyle='rgba(255,255,255,0.75)';
-    particles.forEach(p=>{ p.x+=p.vx; p.y-=p.vy; if(p.y<-10){ p.y=h+10; p.x=Math.random()*w; } pCtx.beginPath(); pCtx.arc(p.x,p.y,p.r,0,Math.PI*2); pCtx.fill(); });
-    prAF = requestAnimationFrame(pStep); }
-  function pStart(){ pResize(); pInit(); cancelAnimationFrame(prAF); prAF = requestAnimationFrame(pStep); }
-  function pStop(){ cancelAnimationFrame(prAF); }
+  function playHen(){ if(!soundOn) return; try{ const s = (nextHen===1?hen1Sfx:hen2Sfx); nextHen = 3-nextHen; s.currentTime=0; s.play(); }catch(e){} }
 
   // ------- Canvas / Game -------
   const dpr = Math.max(1, window.devicePixelRatio || 1);
@@ -146,27 +121,22 @@
     ctx.imageSmoothingQuality = 'high';
   }
 
-  // --- Smooth movement state ---
   const state = {
     grid: 36, cols: 18, rows: 26,
-    hen: {x:4,y:10},      // logical cell
-    prevHen: {x:4,y:10},  // last cell for interpolation
+    hen: {x:4,y:10}, prevHen: {x:4,y:10},
     dir: {x:1,y:0}, next: {x:1,y:0},
     items: [], // {x,y,type:'grain'|'worm'|'gold'}
     score: 0, level: 1,
-    speed: 3.0,   // SLOWER start (cells per second)
-    last: 0,      // last timestamp
-    mover: 0,     // progress within current cell [0..1]
-    running: false,
+    speed: 3.0,   // slower start
+    last: 0, mover: 0, running: false,
     hi: parseInt(localStorage.getItem('hh_hi')||'0',10)
   };
   document.getElementById('hi').textContent = state.hi;
 
-  const wormImg = new Image(); wormImg.src = 'worm.webp'; // use image
-  const henImg = new Image(); henImg.src = 'hen.webp';    // repo asset
+  const wormImg = new Image(); wormImg.src = 'worm.webp';
+  const henImg  = new Image(); henImg.src  = 'hen.webp';
 
   function innerSize(el){ const cs=getComputedStyle(el); return {w: el.clientWidth - parseFloat(cs.paddingLeft||0) - parseFloat(cs.paddingRight||0), h: el.clientHeight - parseFloat(cs.paddingTop||0) - parseFloat(cs.paddingBottom||0)}; }
-
   function fit(){
     const {w,h} = innerSize(playArea);
     const {w:fw,h:fh} = innerSize(frame);
@@ -197,8 +167,7 @@
   function spawnItem(){
     // 88% grain, 10% worm, 2% gold
     const r=Math.random(); const type = r<0.88?'grain':(r<0.98?'worm':'gold');
-    let x,y,tries=0;
-    do{
+    let x,y,tries=0; do{
       x=Math.floor(Math.random()*state.cols);
       y=Math.floor(Math.random()*state.rows);
       tries++; if(tries>300) break;
@@ -207,12 +176,10 @@
   }
 
   function setDir(x,y){
-    // allow quick double turns but avoid 180° within same segment
     if(x===-state.dir.x && y===-state.dir.y) return;
     state.next={x,y};
   }
 
-  // --- Game step with smooth interpolation ---
   function advanceCell(){
     state.prevHen = {x: state.hen.x, y: state.hen.y};
     state.dir = state.next;
@@ -220,13 +187,13 @@
     const ny = state.hen.y + state.dir.y;
     if(nx<0 || ny<0 || nx>=state.cols || ny>=state.rows){ gameOver(); return false; }
     state.hen = {x:nx, y:ny};
-    // eat
-    for(let i=0;i<state.items.length;i++){
-      const it=state.items[i];
+    for(let i=0;i<state.items.length;i++){ const it=state.items[i];
       if(it && it.x===nx && it.y===ny){
         let add=10; if(it.type==='worm') add=50; if(it.type==='gold') add=50;
         state.score+=add; document.getElementById('score').textContent=state.score;
-        if(it.type==='worm') playHen(); else playCorn();
+        // SFX-Regeln: Korn -> Corn (meistens), selten Huhn; Wurm -> immer Huhn
+        if(it.type==='worm') playHen();
+        else if(Math.random()<0.05) playHen(); else playCorn();
         if(state.score>state.hi){ state.hi=state.score; localStorage.setItem('hh_hi', String(state.hi)); document.getElementById('hi').textContent=state.hi; }
         if(state.score%50===0){ state.level++; document.getElementById('level').textContent=state.level; state.speed = Math.min(8, state.speed + 0.25); }
         state.items[i]=spawnItem();
@@ -237,14 +204,11 @@
 
   function draw(interp){
     const g=state.grid; if(!g) return;
-    // canvas grid
     ctx.fillStyle='#f3fbf5'; ctx.fillRect(0,0,canvas.width,canvas.height);
     ctx.strokeStyle='rgba(120,170,135,.22)'; ctx.lineWidth=1;
     for(let x=0;x<=state.cols;x++){ ctx.beginPath(); ctx.moveTo(x*g+.5,0); ctx.lineTo(x*g+.5,canvas.height); ctx.stroke(); }
     for(let y=0;y<=state.rows;y++){ ctx.beginPath(); ctx.moveTo(0,y*g+.5); ctx.lineTo(canvas.width,y*g+.5); ctx.stroke(); }
-    // items
     state.items.forEach((it,i)=> drawItem(it,i));
-    // hen with interpolation
     const rx = state.prevHen.x + (state.hen.x - state.prevHen.x) * interp;
     const ry = state.prevHen.y + (state.hen.y - state.prevHen.y) * interp;
     drawHen(rx, ry);
@@ -255,7 +219,7 @@
     const bob=Math.sin(performance.now()/520+idx)*g*0.05;
     ctx.save(); ctx.translate(cx, cy+bob);
     if(it.type==='worm'){
-      const pad = g*0.12; const size = g - pad*2;
+      const pad=g*0.12, size=g-pad*2;
       if(wormImg.complete) ctx.drawImage(wormImg, -size/2, -size/2, size, size);
       else { ctx.fillStyle='#d16b5e'; ctx.beginPath(); ctx.arc(0,0,g*0.12,0,Math.PI*2); ctx.fill(); }
     } else if(it.type==='gold'){
@@ -277,19 +241,13 @@
     else { img.onload=()=>draw(1); ctx.fillStyle='#fff'; ctx.fillRect(px,py,size,size); }
   }
 
-  // --- Main loop (smooth) ---
   function loop(ts){
     if(!state.running) return;
     if(!state.last) state.last=ts;
-    const dt=(ts-state.last)/1000; // seconds
+    const dt=(ts-state.last)/1000;
     state.last=ts;
-    // advance mover by speed*dt cells; when >=1, step cell
     state.mover += state.speed * dt;
-    while(state.mover >= 1){
-      if(!advanceCell()) return; // game over
-      state.mover -= 1;
-    }
-    // interpolate 0..1
+    while(state.mover >= 1){ if(!advanceCell()) return; state.mover -= 1; }
     draw(state.mover);
     requestAnimationFrame(loop);
   }
@@ -301,63 +259,31 @@
     document.getElementById('over').style.display='flex';
   }
 
-  // --- Start & Inputs ---
-  document.getElementById('again').addEventListener('click', ()=>{
-    document.getElementById('over').style.display='none';
-    reset(); fit(); state.running=true; state.last=0; state.mover=0; requestAnimationFrame(loop);
-  });
-  document.getElementById('menu').addEventListener('click', ()=>{
-    document.getElementById('over').style.display='none';
-    document.getElementById('startFS').style.display='flex';
-    pStart();
-  });
-  document.getElementById('play').addEventListener('pointerdown', ()=>{
-    document.getElementById('startFS').style.display='none';
-    pStop();
-    reset(); fit(); state.running=true; state.last=0; state.mover=0; requestAnimationFrame(loop);
-    if(soundOn){ tryAutoplay(); }
-  }, {passive:true});
+  // Start / Buttons
+  document.getElementById('again').addEventListener('click', ()=>{ document.getElementById('over').style.display='none'; reset(); fit(); state.running=true; state.last=0; state.mover=0; requestAnimationFrame(loop); });
+  document.getElementById('menu').addEventListener('click', ()=>{ document.getElementById('over').style.display='none'; document.getElementById('startFS').style.display='flex'; });
+  document.getElementById('play').addEventListener('pointerdown', ()=>{ document.getElementById('startFS').style.display='none'; reset(); fit(); state.running=true; state.last=0; state.mover=0; requestAnimationFrame(loop); if(soundOn) tryPlayMusic(); }, {passive:true});
+  document.getElementById('restartBtn').addEventListener('click', ()=>{ reset(); fit(); state.running=true; state.last=0; state.mover=0; requestAnimationFrame(loop); });
 
-  // Restart
-  document.getElementById('restartBtn').addEventListener('click', ()=>{
-    reset(); fit(); state.running=true; state.last=0; state.mover=0; requestAnimationFrame(loop);
-  });
-
-  // Sound toggle
+  // Sound-Toggle
   const sb = document.getElementById('soundBtn');
-  sb.addEventListener('click', ()=>{
-    soundOn = !soundOn;
-    sb.textContent = soundOn ? '🔊' : '🔇';
-    try { if(soundOn) music.play(); else music.pause(); } catch(e){}
-  });
+  sb.addEventListener('click', ()=>{ soundOn=!soundOn; sb.textContent = soundOn?'🔊':'🔇'; try{ if(soundOn) music.play(); else music.pause(); }catch(e){} });
 
-  // Startscreen init
-  pStart();
-  tryAutoplay();
+  // Musik sofort im Startscreen versuchen
+  tryPlayMusic();
 
-  // On-screen pad: use pointerdown for immediate response (no click delay)
-  document.getElementById('pad').addEventListener('pointerdown', (e)=>{
-    const b=e.target.closest('button'); if(!b) return;
-    const [x,y]=b.getAttribute('data-d').split(',').map(Number);
-    setDir(x,y);
-  });
+  // On-screen pad
+  document.getElementById('pad').addEventListener('pointerdown', (e)=>{ const b=e.target.closest('button'); if(!b) return; const [x,y]=b.getAttribute('data-d').split(',').map(Number); setDir(x,y); });
 
-  // Swipes: detect on touchmove for quicker reaction
+  // Swipes
   let s=null;
   playArea.addEventListener('touchstart',(e)=>{ const t=e.touches[0]; s={x:t.clientX,y:t.clientY}; },{passive:true});
-  playArea.addEventListener('touchmove',(e)=>{ if(!s) return; const t=e.touches[0]; const dx=t.clientX-s.x, dy=t.clientY-s.y; const ax=Math.abs(dx), ay=Math.abs(dy);
-    if(Math.max(ax,ay)>18){ if(ax>ay) setDir(Math.sign(dx),0); else setDir(0,Math.sign(dy)); s=null; } },{passive:true});
+  playArea.addEventListener('touchmove',(e)=>{ if(!s) return; const t=e.touches[0]; const dx=t.clientX-s.x, dy=t.clientY-s.y; const ax=Math.abs(dx), ay=Math.abs(dy); if(Math.max(ax,ay)>18){ if(ax>ay) setDir(Math.sign(dx),0); else setDir(0,Math.sign(dy)); s=null; } },{passive:true});
   playArea.addEventListener('touchend',()=>{ s=null; },{passive:true});
 
   // Keyboard
-  window.addEventListener('keydown',(e)=>{
-    if(e.key==='ArrowUp'||e.key==='w') setDir(0,-1);
-    else if(e.key==='ArrowDown'||e.key==='s') setDir(0,1);
-    else if(e.key==='ArrowLeft'||e.key==='a') setDir(-1,0);
-    else if(e.key==='ArrowRight'||e.key==='d') setDir(1,0);
-  });
+  window.addEventListener('keydown',(e)=>{ if(e.key==='ArrowUp'||e.key==='w') setDir(0,-1); else if(e.key==='ArrowDown'||e.key==='s') setDir(0,1); else if(e.key==='ArrowLeft'||e.key==='a') setDir(-1,0); else if(e.key==='ArrowRight'||e.key==='d') setDir(1,0); });
 
-  // Initial fit
   fit();
 })();
 </script>
