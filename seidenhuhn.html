@@ -12,8 +12,10 @@
   html, body{ height:100%; margin:0; background:var(--bg); color:var(--ink); font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
   #app{ position:fixed; inset:0; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display:grid; grid-template-rows:auto 1fr auto; gap:0; }
   header{ display:flex; gap:.5rem; align-items:center; padding:.35rem .65rem; }
-  .hud{ display:flex; gap:.4rem; font-weight:800; flex-wrap:wrap; }
+  .hud{ display:flex; gap:.4rem; font-weight:800; flex-wrap:wrap; align-items:center; }
   .pill{ background:var(--glass); border:2px solid #cde9d1; border-radius:999px; padding:.22rem .55rem; box-shadow:0 4px 16px rgba(0,0,0,.05); }
+  .iconbtn{ border:none; border-radius:12px; background:#fff; border:2px solid #cfe7d3; width:40px; height:40px; font-size:1.1rem; box-shadow:0 3px 0 #c7e5d3; }
+  .iconbtn:active{ transform:translateY(1px); box-shadow:0 2px 0 #c7e5d3; }
 
   /* FULL BLEED meadow background without border radius or inner padding */
   #playArea{ position:relative; overflow:hidden; border:none; border-radius:0; background:url('meadow.webp') center/cover no-repeat; display:grid; place-items:center; }
@@ -29,14 +31,20 @@
   .pad button{ width:46px; height:46px; border-radius:12px; border:none; background:#fff; border:2px solid #d7efe0; box-shadow:0 3px 0 #c7e5d3; font-size:1rem; }
   .pad .empty{ visibility:hidden; }
 
-  #startFS{ position:fixed; inset:0; z-index:9999; display:flex; align-items:flex-end; justify-content:center; background:#000; }
-  #startFS::before{ content:''; position:absolute; inset:0; background:url('cover.webp') center/cover no-repeat; }
-  #play{ position:relative; margin: 1.2rem 0 calc(1.2rem + env(safe-area-inset-bottom)); padding:1rem 2rem; font-size:1.4rem; border:none; border-radius:18px; background:#43a047; color:#fff; box-shadow:0 10px 20px rgba(67,160,71,.35), 0 6px 0 #2e7d32; }
-  #play:active{ transform:translateY(2px); box-shadow:0 4px 0 #2e7d32; }
+  /* Startscreen */
+  #startFS{ position:fixed; inset:0; z-index:9999; display:flex; align-items:flex-end; justify-content:center; background:#000; overflow:hidden; }
+  #startFS::before{ content:''; position:absolute; inset:0; background:url('cover.webp') center/cover no-repeat; filter:none; }
+  #particles{ position:absolute; inset:0; pointer-events:none; }
+  .startBar{ position:relative; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:.5rem;
+             margin:0 0 calc(1.0rem + env(safe-area-inset-bottom)); z-index:2; }
+  #play{ position:relative; padding:1rem 2.2rem; font-size:1.35rem; border:none; border-radius:20px;
+         background:linear-gradient(180deg,#ffea7a 0%, #ffb44c 60%, #ff7043 100%);
+         color:#2b190e; text-shadow:0 1px 0 rgba(255,255,255,.6); box-shadow:0 14px 28px rgba(255,112,67,.25), 0 6px 0 #d85d37; font-weight:900; letter-spacing:.3px; }
+  #play:active{ transform:translateY(2px); box-shadow:0 4px 0 #d85d37; }
+  .playLabel{ color:#fff; font-weight:900; text-shadow:0 2px 10px rgba(0,0,0,.45); }
 
   #over{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:9000; background:rgba(0,0,0,.35); }
   .card{ background:#fff; border:2px solid #d6ead7; border-radius:16px; padding:1rem; width:min(90vw,420px); text-align:center; box-shadow:0 16px 40px rgba(0,0,0,.18); }
-  .card h3{ margin:.3rem 0 .8rem; }
   .row{ display:flex; gap:.6rem; justify-content:center; }
   .btn{ border:none; border-radius:14px; padding:.7rem 1.1rem; font-weight:800; }
   .btn.primary{ background:#43a047; color:#fff; }
@@ -52,6 +60,8 @@
       <div class="pill">Punkte: <span id="score">0</span></div>
       <div class="pill">Level: <span id="level">1</span></div>
       <div class="pill">Highscore: <span id="hi">0</span></div>
+      <button id="soundBtn" class="iconbtn" title="Sound an/aus" aria-label="Sound umschalten">🔊</button>
+      <button id="restartBtn" class="iconbtn" title="Neu starten" aria-label="Neu starten">🔄</button>
     </div>
   </header>
 
@@ -69,11 +79,15 @@
     </div>
   </div>
 
-  <footer>Für Kinder · Offline spielbar · v1.11.0</footer>
+  <footer>Für Kinder · Offline spielbar · v1.13.0</footer>
 </div>
 
 <div id="startFS">
-  <button id="play" aria-label="Spiel starten">▶️ Start</button>
+  <canvas id="particles"></canvas>
+  <div class="startBar">
+    <button id="play" aria-label="Spiel starten">Starten</button>
+    <div class="playLabel" aria-hidden="true">Starten</div>
+  </div>
 </div>
 
 <div id="over">
@@ -89,6 +103,33 @@
 
 <script>
 (function(){ 'use strict';
+  // ------- Audio (files from repo) -------
+  const music = new Audio('./Introsong.mp3'); music.loop = true; music.volume = 0.55;
+  const cornSfx = new Audio('./Corn.mp3'); cornSfx.volume = 0.9;
+  const hen1Sfx = new Audio('./Huhn1.mp3'); hen1Sfx.volume = 0.9;
+  const hen2Sfx = new Audio('./Huhn2.mp3'); hen2Sfx.volume = 0.9;
+  let nextHen = 1;
+  let soundOn = true;
+
+  async function tryAutoplay(){ try{ await music.play(); }catch(e){ /* Autoplay kann blockiert sein, startet dann beim ersten Tap */ } }
+  function playCorn(){ if(!soundOn) return; try{ cornSfx.currentTime=0; cornSfx.play(); }catch(e){} }
+  function playHen(){ if(!soundOn) return; try{ const sfx = (nextHen===1?hen1Sfx:hen2Sfx); nextHen = 3-nextHen; sfx.currentTime=0; sfx.play(); }catch(e){} }
+
+  // ------- Particles (subtle) -------
+  const pCanvas = document.getElementById('particles');
+  const pCtx = pCanvas.getContext('2d');
+  let prAF = 0, particles = [];
+  function pResize(){ const dpr = window.devicePixelRatio||1; pCanvas.width = Math.floor(pCanvas.clientWidth * dpr); pCanvas.height = Math.floor(pCanvas.clientHeight * dpr); }
+  const PCOUNT = 36;
+  function pInit(){ particles = []; const dpr = window.devicePixelRatio||1; const w=pCanvas.width, h=pCanvas.height;
+    for(let i=0;i<PCOUNT;i++){ particles.push({ x: Math.random()*w, y: Math.random()*h, r: (Math.random()*3+1)*dpr, vx:(Math.random()-.5)*0.12*dpr, vy:(Math.random()*.12+0.05)*dpr, a: Math.random()*0.5+0.3 }); } }
+  function pStep(){ const w=pCanvas.width, h=pCanvas.height; pCtx.clearRect(0,0,w,h); pCtx.fillStyle='rgba(255,255,255,0.75)';
+    particles.forEach(p=>{ p.x+=p.vx; p.y-=p.vy; if(p.y<-10){ p.y=h+10; p.x=Math.random()*w; } pCtx.beginPath(); pCtx.arc(p.x,p.y,p.r,0,Math.PI*2); pCtx.fill(); });
+    prAF = requestAnimationFrame(pStep); }
+  function pStart(){ pResize(); pInit(); cancelAnimationFrame(prAF); prAF = requestAnimationFrame(pStep); }
+  function pStop(){ cancelAnimationFrame(prAF); }
+
+  // ------- Canvas / Game -------
   const dpr = Math.max(1, window.devicePixelRatio || 1);
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d', {alpha:false});
@@ -113,13 +154,16 @@
     dir: {x:1,y:0}, next: {x:1,y:0},
     items: [], // {x,y,type:'grain'|'worm'|'gold'}
     score: 0, level: 1,
-    speed: 4.8,   // cells per second (smooth)
+    speed: 3.0,   // SLOWER start (cells per second)
     last: 0,      // last timestamp
     mover: 0,     // progress within current cell [0..1]
     running: false,
     hi: parseInt(localStorage.getItem('hh_hi')||'0',10)
   };
   document.getElementById('hi').textContent = state.hi;
+
+  const wormImg = new Image(); wormImg.src = 'worm.webp'; // use image
+  const henImg = new Image(); henImg.src = 'hen.webp';    // repo asset
 
   function innerSize(el){ const cs=getComputedStyle(el); return {w: el.clientWidth - parseFloat(cs.paddingLeft||0) - parseFloat(cs.paddingRight||0), h: el.clientHeight - parseFloat(cs.paddingTop||0) - parseFloat(cs.paddingBottom||0)}; }
 
@@ -141,19 +185,18 @@
   new ResizeObserver(fit).observe(playArea);
   window.addEventListener('orientationchange', ()=> setTimeout(fit,0));
 
-  const henImg = new Image(); henImg.src = 'hen.webp'; // repo asset
-
   function reset(){
     state.dir={x:1,y:0}; state.next={x:1,y:0};
     const cx=Math.floor(state.cols/2)-1, cy=Math.floor(state.rows/2);
     state.hen={x:cx,y:cy}; state.prevHen={x:cx,y:cy};
     state.items = Array.from({length:4}, spawnItem);
-    state.score=0; state.level=1; state.speed=4.8;
+    state.score=0; state.level=1; state.speed=3.0;
     document.getElementById('score').textContent=0;
     document.getElementById('level').textContent=1;
   }
   function spawnItem(){
-    const r=Math.random(); const type = r<0.65?'grain':(r<0.90?'worm':'gold');
+    // 88% grain, 10% worm, 2% gold
+    const r=Math.random(); const type = r<0.88?'grain':(r<0.98?'worm':'gold');
     let x,y,tries=0;
     do{
       x=Math.floor(Math.random()*state.cols);
@@ -181,10 +224,11 @@
     for(let i=0;i<state.items.length;i++){
       const it=state.items[i];
       if(it && it.x===nx && it.y===ny){
-        let add=10; if(it.type==='worm') add=25; if(it.type==='gold') add=50;
+        let add=10; if(it.type==='worm') add=50; if(it.type==='gold') add=50;
         state.score+=add; document.getElementById('score').textContent=state.score;
+        if(it.type==='worm') playHen(); else playCorn();
         if(state.score>state.hi){ state.hi=state.score; localStorage.setItem('hh_hi', String(state.hi)); document.getElementById('hi').textContent=state.hi; }
-        if(state.score%50===0){ state.level++; document.getElementById('level').textContent=state.level; state.speed = Math.min(9, state.speed + 0.35); }
+        if(state.score%50===0){ state.level++; document.getElementById('level').textContent=state.level; state.speed = Math.min(8, state.speed + 0.25); }
         state.items[i]=spawnItem();
       }
     }
@@ -195,7 +239,7 @@
     const g=state.grid; if(!g) return;
     // canvas grid
     ctx.fillStyle='#f3fbf5'; ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.strokeStyle='rgba(120,170,135,.25)'; ctx.lineWidth=1;
+    ctx.strokeStyle='rgba(120,170,135,.22)'; ctx.lineWidth=1;
     for(let x=0;x<=state.cols;x++){ ctx.beginPath(); ctx.moveTo(x*g+.5,0); ctx.lineTo(x*g+.5,canvas.height); ctx.stroke(); }
     for(let y=0;y<=state.rows;y++){ ctx.beginPath(); ctx.moveTo(0,y*g+.5); ctx.lineTo(canvas.width,y*g+.5); ctx.stroke(); }
     // items
@@ -211,11 +255,9 @@
     const bob=Math.sin(performance.now()/520+idx)*g*0.05;
     ctx.save(); ctx.translate(cx, cy+bob);
     if(it.type==='worm'){
-      ctx.lineWidth=Math.max(2,g*0.08); ctx.strokeStyle='#d16b5e';
-      ctx.beginPath(); ctx.moveTo(-g*0.18,0);
-      ctx.quadraticCurveTo(-g*0.05,-g*0.12,g*0.1,-g*0.02);
-      ctx.quadraticCurveTo(g*0.22,g*0.08,g*0.18,g*0.12); ctx.stroke();
-      ctx.beginPath(); ctx.arc(g*0.18,g*0.12,g*0.04,0,Math.PI*2); ctx.fillStyle='#d16b5e'; ctx.fill();
+      const pad = g*0.12; const size = g - pad*2;
+      if(wormImg.complete) ctx.drawImage(wormImg, -size/2, -size/2, size, size);
+      else { ctx.fillStyle='#d16b5e'; ctx.beginPath(); ctx.arc(0,0,g*0.12,0,Math.PI*2); ctx.fill(); }
     } else if(it.type==='gold'){
       ctx.fillStyle='#ffd54f'; ctx.strokeStyle='#b38a00';
       ctx.beginPath(); ctx.ellipse(0,0,g*0.24,g*0.18,Math.PI/8,0,Math.PI*2); ctx.fill(); ctx.lineWidth=2; ctx.stroke();
@@ -230,7 +272,7 @@
   function drawHen(x,y){
     const g=state.grid; const size=Math.min(g*1.7, g*1.2+20);
     const px=x*g+(g-size)/2, py=y*g+(g-size)/2;
-    const img=window.__hen||(window.__hen=new Image()); if(!img.src) img.src='hen.webp';
+    const img=henImg;
     if(img.complete){ ctx.save(); ctx.shadowColor='rgba(0,0,0,.18)'; ctx.shadowBlur=8; ctx.drawImage(img, px, py, size, size); ctx.restore(); }
     else { img.onload=()=>draw(1); ctx.fillStyle='#fff'; ctx.fillRect(px,py,size,size); }
   }
@@ -267,11 +309,31 @@
   document.getElementById('menu').addEventListener('click', ()=>{
     document.getElementById('over').style.display='none';
     document.getElementById('startFS').style.display='flex';
+    pStart();
   });
   document.getElementById('play').addEventListener('pointerdown', ()=>{
     document.getElementById('startFS').style.display='none';
+    pStop();
     reset(); fit(); state.running=true; state.last=0; state.mover=0; requestAnimationFrame(loop);
+    if(soundOn){ tryAutoplay(); }
   }, {passive:true});
+
+  // Restart
+  document.getElementById('restartBtn').addEventListener('click', ()=>{
+    reset(); fit(); state.running=true; state.last=0; state.mover=0; requestAnimationFrame(loop);
+  });
+
+  // Sound toggle
+  const sb = document.getElementById('soundBtn');
+  sb.addEventListener('click', ()=>{
+    soundOn = !soundOn;
+    sb.textContent = soundOn ? '🔊' : '🔇';
+    try { if(soundOn) music.play(); else music.pause(); } catch(e){}
+  });
+
+  // Startscreen init
+  pStart();
+  tryAutoplay();
 
   // On-screen pad: use pointerdown for immediate response (no click delay)
   document.getElementById('pad').addEventListener('pointerdown', (e)=>{
@@ -295,6 +357,7 @@
     else if(e.key==='ArrowRight'||e.key==='d') setDir(1,0);
   });
 
+  // Initial fit
   fit();
 })();
 </script>
