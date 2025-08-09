@@ -7,20 +7,20 @@
 <link rel="manifest" href="manifest.webmanifest"/>
 <meta name="theme-color" content="#c5e1a5"/>
 <style>
-  :root{ --ink:#1d2b1d; --brand:#43a047; --bg:#e8f5e9; --glass:rgba(255,255,255,.85); }
+  :root{ --ink:#1d2b1d; --brand:#43a047; --bg:#e8f5e9; --glass:rgba(255,255,255,.9); }
   *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
   html, body{ height:100%; margin:0; background:var(--bg); color:var(--ink); font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
   #app{ position:fixed; inset:0; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display:grid; grid-template-rows:auto 1fr auto; gap:.25rem; }
   header{ display:flex; gap:.5rem; align-items:center; padding:.35rem .65rem; }
-  .hud{ display:flex; gap:.4rem; font-weight:800; }
+  .hud{ display:flex; gap:.4rem; font-weight:800; flex-wrap:wrap; }
   .pill{ background:var(--glass); border:2px solid #cde9d1; border-radius:999px; padding:.22rem .55rem; box-shadow:0 4px 16px rgba(0,0,0,.05); }
-  #playArea{ position:relative; overflow:hidden; border-radius:16px; border:2px solid #cde9d1; box-shadow:0 10px 30px rgba(0,0,0,.06); background:linear-gradient(180deg,#f8fff9 0%, #eef7f0 100%); }
-  #uiBar{ position:relative; background:var(--glass); border-top:2px solid #cde9d1; backdrop-filter:saturate(140%) blur(6px); display:flex; justify-content:center; align-items:center; padding:.25rem 0 calc(.25rem + env(safe-area-inset-bottom)); }
-  .pad{ display:grid; grid-template-columns:52px 52px 52px; grid-template-rows:52px 52px 52px; gap:.35rem; }
-  .pad button{ width:52px; height:52px; border-radius:14px; border:none; background:#fff; border:2px solid #d7efe0; box-shadow:0 4px 0 #c7e5d3; font-size:1.05rem; }
+  #playArea{ position:relative; overflow:hidden; border-radius:16px; border:2px solid #cde9d1; box-shadow:0 10px 30px rgba(0,0,0,.06); background:linear-gradient(180deg,#f8fff9 0%, #eef7f0 100%); display:grid; place-items:center; }
+  #uiBar{ position:relative; background:var(--glass); border-top:2px solid #cde9d1; backdrop-filter:saturate(140%) blur(6px); display:flex; justify-content:center; align-items:center; padding:.2rem 0 calc(.25rem + env(safe-area-inset-bottom)); }
+  .pad{ display:grid; grid-template-columns:48px 48px 48px; grid-template-rows:48px 48px 48px; gap:.28rem; }
+  .pad button{ width:48px; height:48px; border-radius:12px; border:none; background:#fff; border:2px solid #d7efe0; box-shadow:0 3px 0 #c7e5d3; font-size:1rem; }
   .pad .empty{ visibility:hidden; }
   canvas{ display:block; width:100%; height:100%; touch-action:none; image-rendering:auto; }
-  /* Fullscreen Startscreen */
+  /* Fullscreen Start */
   #startFS{ position:fixed; inset:0; z-index:9999; display:flex; align-items:flex-end; justify-content:center; background:#000; }
   #startFS::before{ content:''; position:absolute; inset:0; background:url('cover.webp') center/cover no-repeat; }
   #play{ position:relative; margin: 1.2rem 0 calc(1.2rem + env(safe-area-inset-bottom)); padding:1rem 2rem; font-size:1.4rem; border:none; border-radius:18px; background:var(--brand); color:#fff; box-shadow:0 10px 20px rgba(67,160,71,.35), 0 6px 0 #2e7d32; }
@@ -34,11 +34,12 @@
     <div class="hud">
       <div class="pill">Punkte: <span id="score">0</span></div>
       <div class="pill">Level: <span id="level">1</span></div>
+      <div class="pill">Highscore: <span id="hi">0</span></div>
     </div>
   </header>
 
   <section id="playArea">
-    <canvas id="game" width="720" height="1280" aria-label="Seidenhuhn sammelt Körner"></canvas>
+    <canvas id="game" width="720" height="1280" aria-label="Seidenhuhn sammelt Körner und Würmer"></canvas>
   </section>
 
   <div id="uiBar">
@@ -65,7 +66,6 @@
   const ctx = canvas.getContext('2d', {alpha:false});
   const playArea = document.getElementById('playArea');
 
-  // Scale canvas to DPR
   function sizeCanvas(pxW, pxH){
     canvas.style.width = pxW + 'px';
     canvas.style.height = pxH + 'px';
@@ -76,45 +76,62 @@
     ctx.imageSmoothingQuality = 'high';
   }
 
+  // State with adaptive grid
   const state = {
-    grid: 32, cols: 14, rows: 24, // mehr Reihen -> mehr Fläche
+    grid: 36, cols: 18, rows: 26, // Startwerte; werden bei fit() angepasst
     hen: {x:4,y:10},
     dir: {x:1,y:0},
     next: {x:1,y:0},
-    foods: [],
+    items: [], // {x,y,type:'grain'|'worm'}
     score: 0,
     level: 1,
     tick: 220,
     last: 0, acc: 0,
-    running: false
+    running: false,
+    hi: parseInt(localStorage.getItem('hh_hi')||'0',10)
   };
+  document.getElementById('hi').textContent = state.hi;
 
-  const henImg = new Image(); henImg.src = 'hen.webp';
+  const henImg = new Image(); henImg.src = 'hen.webp'; // Bild liegt im Repo
 
   function fit(){
     const w = playArea.clientWidth;
     const h = playArea.clientHeight;
-    const cell = Math.floor(Math.min(w/state.cols, h/state.rows));
-    sizeCanvas(state.cols*cell, state.rows*cell);
-    state.grid = cell;
+    // Ziel: möglichst voll ausfüllen. Fixiere eine Ziel-Reihenzahl und passe Spalten an.
+    const targetRows = 26;
+    let cell = Math.max(28, Math.floor(h / targetRows)); // Mindestzellgröße
+    let cols = Math.max(12, Math.floor(w / cell));
+    let rows = Math.max(16, Math.floor(h / cell));
+    // Rechne so, dass die Fläche nahezu voll ist
+    cell = Math.floor(Math.min(w/cols, h/rows));
+    sizeCanvas(cols*cell, rows*cell);
+    state.grid = cell; state.cols = cols; state.rows = rows;
+    // clamp hen position
+    state.hen.x = Math.min(state.hen.x, cols-1);
+    state.hen.y = Math.min(state.hen.y, rows-1);
     draw();
   }
   new ResizeObserver(fit).observe(playArea);
   window.addEventListener('orientationchange', ()=> setTimeout(fit,0));
 
   function reset(){
-    state.hen = {x: Math.floor(state.cols/2)-1, y: Math.floor(state.rows/2)};
     state.dir = {x:1,y:0}; state.next = {x:1,y:0};
-    state.foods = Array.from({length:3}, randomFree);
+    state.hen = {x: Math.floor(state.cols/2)-1, y: Math.floor(state.rows/2)};
+    state.items = Array.from({length:4}, spawnItem);
     state.score=0; state.level=1; state.tick=220;
     document.getElementById('score').textContent=0;
     document.getElementById('level').textContent=1;
   }
-  function randomFree(){
+  function spawnItem(){
+    // 75% grain, 25% worm
+    const type = Math.random() < 0.75 ? 'grain' : 'worm';
     let x,y,tries=0;
-    do{ x=Math.floor(Math.random()*state.cols); y=Math.floor(Math.random()*state.rows); tries++; if(tries>200) break; }
-    while((x===state.hen.x && y===state.hen.y) || state.foods.some(f=>f && f.x===x && f.y===y));
-    return {x,y};
+    do{
+      x = Math.floor(Math.random()*state.cols);
+      y = Math.floor(Math.random()*state.rows);
+      tries++; if(tries>300) break;
+    }while((x===state.hen.x && y===state.hen.y) || state.items.some(i=>i && i.x===x && i.y===y));
+    return {x,y,type};
   }
   function setDir(x,y){ if(x===-state.dir.x && y===-state.dir.y) return; state.next={x,y}; }
 
@@ -124,12 +141,17 @@
     const ny = state.hen.y + state.dir.y;
     if(nx<0 || ny<0 || nx>=state.cols || ny>=state.rows) return gameOver();
     state.hen = {x:nx,y:ny};
-    for(let i=0;i<state.foods.length;i++){
-      const f = state.foods[i];
-      if(f && f.x===nx && f.y===ny){
-        state.foods[i] = randomFree();
-        state.score += 10; document.getElementById('score').textContent=state.score;
+    // Eat items
+    for(let i=0;i<state.items.length;i++){
+      const it = state.items[i];
+      if(it && it.x===nx && it.y===ny){
+        // score
+        const add = it.type==='worm' ? 25 : 10;
+        state.score += add; document.getElementById('score').textContent=state.score;
+        if(state.score > state.hi){ state.hi = state.score; localStorage.setItem('hh_hi', String(state.hi)); document.getElementById('hi').textContent = state.hi; }
         if(state.score % 50 === 0){ state.level++; document.getElementById('level').textContent=state.level; state.tick = Math.max(110, state.tick-12); }
+        // respawn
+        state.items[i] = spawnItem();
       }
     }
   }
@@ -140,25 +162,43 @@
     ctx.strokeStyle='rgba(120,170,135,.35)'; ctx.lineWidth=1;
     for(let x=0;x<=state.cols;x++){ ctx.beginPath(); ctx.moveTo(x*g+.5,0); ctx.lineTo(x*g+.5,canvas.height); ctx.stroke(); }
     for(let y=0;y<=state.rows;y++){ ctx.beginPath(); ctx.moveTo(0,y*g+.5); ctx.lineTo(canvas.width,y*g+.5); ctx.stroke(); }
-    state.foods.forEach((f,i)=> drawGrain(f.x,f.y,i));
+    // items
+    state.items.forEach((it,i)=> drawItem(it, i));
     drawHen(state.hen.x, state.hen.y);
   }
 
-  function drawGrain(x,y,i){
-    const g=state.grid, cx=x*g+g/2, cy=y*g+g/2;
-    const bob = Math.sin(performance.now()/500 + i) * g*0.05;
+  function drawItem(it, idx){
+    const g=state.grid, cx=it.x*g+g/2, cy=it.y*g+g/2;
+    const bob = Math.sin(performance.now()/500 + idx) * g*0.05;
     ctx.save(); ctx.translate(cx, cy + bob);
-    ctx.fillStyle='#ffca28'; ctx.strokeStyle='#b28900';
-    ctx.beginPath(); ctx.ellipse(0,0,g*0.22,g*0.16,Math.PI/7,0,Math.PI*2); ctx.fill(); ctx.lineWidth=2; ctx.stroke();
+    if(it.type==='worm'){
+      // Wurm: geschwungen, rötlich
+      ctx.lineWidth = Math.max(2, g*0.08);
+      ctx.strokeStyle = '#d16b5e';
+      ctx.beginPath();
+      ctx.moveTo(-g*0.18, 0);
+      ctx.quadraticCurveTo(-g*0.05, -g*0.12, g*0.1, -g*0.02);
+      ctx.quadraticCurveTo(g*0.22, g*0.08, g*0.18, g*0.12);
+      ctx.stroke();
+      ctx.beginPath(); ctx.arc(g*0.18, g*0.12, g*0.04, 0, Math.PI*2); ctx.fillStyle='#d16b5e'; ctx.fill();
+    }else{
+      // Korn
+      ctx.fillStyle='#ffca28'; ctx.strokeStyle='#b28900';
+      ctx.beginPath(); ctx.ellipse(0,0,g*0.22,g*0.16,Math.PI/7,0,Math.PI*2); ctx.fill(); ctx.lineWidth=2; ctx.stroke();
+    }
     ctx.restore();
   }
 
   function drawHen(x,y){
-    const g=state.grid; const size = Math.min(g*1.5, g*1.2 + 14);
+    const g=state.grid; const size = Math.min(g*1.6, g*1.2 + 18); // größer & klar
     const px = x*g + (g - size)/2;
     const py = y*g + (g - size)/2;
-    if(henImg.complete) ctx.drawImage(henImg, px, py, size, size);
-    else { ctx.fillStyle='#fff'; ctx.fillRect(px,py,size,size); }
+    const img = document.createElement('img'); img.src='hen.webp'; // ensure ref
+    if(document.readyState === 'complete'){}
+    const hen = new Image(); hen.src='hen.webp';
+    // Use a persistent image to avoid loading jank
+    if(window.__hen && window.__hen.complete){ ctx.save(); ctx.shadowColor='rgba(0,0,0,.15)'; ctx.shadowBlur=8; ctx.drawImage(window.__hen, px, py, size, size); ctx.restore(); }
+    else { window.__hen = hen; if(hen.complete){ ctx.save(); ctx.shadowColor='rgba(0,0,0,.15)'; ctx.shadowBlur=8; ctx.drawImage(hen, px, py, size, size); ctx.restore(); } else { ctx.fillStyle='#fff'; ctx.fillRect(px,py,size,size); } }
   }
 
   function loop(ts){
@@ -183,7 +223,7 @@
     setDir(x,y);
   });
 
-  // Swipes direkt im Spielfeld
+  // Swipe
   let s=null;
   playArea.addEventListener('touchstart', (e)=>{ const t=e.touches[0]; s={x:t.clientX, y:t.clientY}; }, {passive:true});
   playArea.addEventListener('touchend', (e)=>{
@@ -193,7 +233,7 @@
     s=null;
   }, {passive:true});
 
-  // Keyboard (für Desktop)
+  // Keyboard (Desktop)
   window.addEventListener('keydown', (e)=>{
     if(e.key==='ArrowUp'||e.key==='w') setDir(0,-1);
     else if(e.key==='ArrowDown'||e.key==='s') setDir(0,1);
