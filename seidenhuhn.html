@@ -11,9 +11,9 @@
   *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
   html, body{ height:100%; margin:0; background:var(--bg); color:var(--ink); font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
   #app{ position:fixed; inset:0; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display:grid; grid-template-rows:auto 1fr auto; gap:0; }
-  header{ display:flex; gap:.5rem; align-items:center; padding:.35rem .65rem; }
-  .hud{ display:flex; gap:.4rem; font-weight:800; flex-wrap:wrap; align-items:center; }
-  .pill{ background:var(--glass); border:2px solid #cde9d1; border-radius:999px; padding:.22rem .55rem; box-shadow:0 4px 16px rgba(0,0,0,.05); }
+  header{ display:flex; gap:.4rem; align-items:center; padding:.35rem .6rem; justify-content:space-between; }
+  .hud{ display:flex; gap:.35rem; align-items:center; flex:1 1 auto; min-width:0; }
+  .pill{ background:var(--glass); border:2px solid #cde9d1; border-radius:14px; padding:.18rem .5rem; box-shadow:0 4px 16px rgba(0,0,0,.05); font-size:clamp(.85rem, 2.6vw, 1rem); }
   .iconbtn{ border:none; border-radius:12px; background:#fff; border:2px solid #cfe7d3; width:40px; height:40px; font-size:1.1rem; box-shadow:0 3px 0 #c7e5d3; }
   .iconbtn:active{ transform:translateY(1px); box-shadow:0 2px 0 #c7e5d3; }
 
@@ -44,8 +44,8 @@
   footer{ padding: .1rem .65rem .45rem; text-align:center; font-size:.85rem; color:#4f6b50; }
 
   /* Layout polish: keep stats left, controls right */
-  header{ justify-content: space-between; }
-  .hud{ width:100%; }
+  header{ display:flex; gap:.4rem; align-items:center; padding:.35rem .6rem; justify-content:space-between; }
+  .hud{ display:flex; gap:.35rem; align-items:center; flex:1 1 auto; min-width:0; }
   .hud > button:first-of-type{ margin-left:auto; }
   .hud > button + button{ margin-left:.4rem; }
 
@@ -53,12 +53,9 @@
 </head>
 <body>
 <div id="app">
-  <audio id="bgm" src="Introsong.mp3" preload="auto"></audio>
   <header>
     <div class="hud">
-      <div class="pill">Punkte: <span id="score">0</span></div>
-      <div class="pill">Level: <span id="level">1</span></div>
-      <div class="pill">Highscore: <span id="hi">0</span></div>
+      <div class="pill" id="stats">P: <span id="score">0</span> · L: <span id="level">1</span> · Hi: <span id="hi">0</span></div>
       <button id="soundBtn" class="iconbtn" title="Sound an/aus" aria-label="Sound umschalten">🔊</button>
       <button id="restartBtn" class="iconbtn" title="Neu starten" aria-label="Neu starten">🔄</button>
     </div>
@@ -105,6 +102,13 @@
   const hen2Sfx = new Audio('./Huhn2.mp3'); hen2Sfx.volume = 0.9;
   let nextHen = 1;
   let soundOn = true;
+
+  let nextWorm = 0; // alternates worm sfx between corn and hen1
+  function playHen2(){ if(!soundOn) return; try{ hen2Sfx.currentTime=0; hen2Sfx.play(); }catch(e){} }
+  function playWormAlt(){ if(!soundOn) return; try{ const s = (nextWorm===0?cornSfx:hen1Sfx); nextWorm = 1-nextWorm; s.currentTime=0; s.play(); }catch(e){} }
+
+  // Autoplay: sofort versuchen, zusätzlich beim ersten User-Event & beim Startbutton
+  tryPlayMusic();
 
   async function tryPlayMusic(){ try{ await music.play(); }catch(e){ /* Autoplay evtl. blockiert – startet beim ersten Tap */ } }
   function playCorn(){ if(!soundOn) return; try{ cornSfx.currentTime=0; cornSfx.play(); }catch(e){} }
@@ -292,40 +296,6 @@
 
   fit();
 })();
-// --- Intro song autoplay & global sound toggle ---
-const soundBtn = document.getElementById('soundBtn');
-const bgm = document.getElementById('bgm');
-if (bgm) {
-  bgm.loop = true;
-  // Try to play immediately (may fail on mobile until a user gesture)
-  (async () => {
-    try { await bgm.play(); }
-    catch (e) {
-      const unlock = () => { bgm.play().catch(()=>{}); };
-      window.addEventListener('pointerdown', unlock, { once:true, passive:true });
-      window.addEventListener('keydown', unlock, { once:true });
-      window.addEventListener('touchstart', unlock, { once:true, passive:true });
-    }
-  })();
-}
-function updateSoundUI(){
-  if (!soundBtn) return;
-  const muted = bgm ? bgm.muted : false;
-  soundBtn.textContent = muted ? '🔇' : '🔊';
-  soundBtn.setAttribute('aria-label', muted ? 'Sound einschalten' : 'Sound ausschalten');
-}
-if (soundBtn){
-  soundBtn.addEventListener('click', () => {
-    if (bgm) {
-      bgm.muted = !bgm.muted;
-      if (!bgm.muted) { bgm.play().catch(()=>{}); }
-    }
-    updateSoundUI();
-  });
-  updateSoundUI();
-}
-// --- end intro song ---
-
 </script>
 </body>
 </html>
