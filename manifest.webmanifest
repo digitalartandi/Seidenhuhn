@@ -1,1 +1,9 @@
-{ "name": "Seidenhuhn", "short_name": "Seidenhuhn", "start_url": "./seidenhuhn.html", "display": "standalone" }
+{
+  "name": "Hühnerhof‑Hüpfer",
+  "short_name": "Hühner-Hüpfer",
+  "start_url": "./seidenhuhn.html",
+  "display": "standalone",
+  "background_color": "#e8f5e9",
+  "theme_color": "#c5e1a5",
+  "icons": []
+}
