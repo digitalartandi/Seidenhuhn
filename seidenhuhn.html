@@ -27,8 +27,8 @@
   #uiBar{ position:relative; border-top:2px solid #caa27a; background:url('wood.webp') center/cover no-repeat; display:flex; justify-content:center; align-items:center; padding:.2rem 0 calc(.3rem + env(safe-area-inset-bottom)); }
   #uiBar::before{ content:''; position:absolute; inset:0; background:rgba(255,255,255,.14); pointer-events:none; }
 
-  .pad{ position:relative; z-index:1; display:grid; grid-template-columns:46px 46px 46px; grid-template-rows:46px 46px 46px; gap:.22rem; }
-  .pad button{ width:46px; height:46px; border-radius:12px; border:none; background:#fff; border:2px solid #d7efe0; box-shadow:0 3px 0 #c7e5d3; font-size:1rem; }
+  .pad{ position:relative; z-index:1; display:grid; grid-template-columns:60px 60px 60px; grid-template-rows:60px 60px 60px; gap:.22rem; }
+  .pad button{ width: 60px; height: 60px; border-radius:12px; border:none; background:#fff; border:2px solid #d7efe0; box-shadow:0 3px 0 #c7e5d3; font-size: 1.2rem; }
   .pad .empty{ visibility:hidden; }
 
   /* Startscreen (ohne Partikel, nur Button) */
@@ -42,10 +42,18 @@
   #play:active{ transform:translateY(2px); box-shadow:0 4px 0 #d85d37; }
 
   footer{ padding: .1rem .65rem .45rem; text-align:center; font-size:.85rem; color:#4f6b50; }
+
+  /* Layout polish: keep stats left, controls right */
+  header{ justify-content: space-between; }
+  .hud{ width:100%; }
+  .hud > button:first-of-type{ margin-left:auto; }
+  .hud > button + button{ margin-left:.4rem; }
+
 </style>
 </head>
 <body>
 <div id="app">
+  <audio id="bgm" src="Introsong.mp3" preload="auto"></audio>
   <header>
     <div class="hud">
       <div class="pill">Punkte: <span id="score">0</span></div>
@@ -69,8 +77,6 @@
       <div class="empty"></div><button data-d="0,1">⬇️</button><div class="empty"></div>
     </div>
   </div>
-
-  <footer>Für Kinder · Offline spielbar · v1.13.2</footer>
 </div>
 
 <div id="startFS">
@@ -286,6 +292,40 @@
 
   fit();
 })();
+// --- Intro song autoplay & global sound toggle ---
+const soundBtn = document.getElementById('soundBtn');
+const bgm = document.getElementById('bgm');
+if (bgm) {
+  bgm.loop = true;
+  // Try to play immediately (may fail on mobile until a user gesture)
+  (async () => {
+    try { await bgm.play(); }
+    catch (e) {
+      const unlock = () => { bgm.play().catch(()=>{}); };
+      window.addEventListener('pointerdown', unlock, { once:true, passive:true });
+      window.addEventListener('keydown', unlock, { once:true });
+      window.addEventListener('touchstart', unlock, { once:true, passive:true });
+    }
+  })();
+}
+function updateSoundUI(){
+  if (!soundBtn) return;
+  const muted = bgm ? bgm.muted : false;
+  soundBtn.textContent = muted ? '🔇' : '🔊';
+  soundBtn.setAttribute('aria-label', muted ? 'Sound einschalten' : 'Sound ausschalten');
+}
+if (soundBtn){
+  soundBtn.addEventListener('click', () => {
+    if (bgm) {
+      bgm.muted = !bgm.muted;
+      if (!bgm.muted) { bgm.play().catch(()=>{}); }
+    }
+    updateSoundUI();
+  });
+  updateSoundUI();
+}
+// --- end intro song ---
+
 </script>
 </body>
 </html>
