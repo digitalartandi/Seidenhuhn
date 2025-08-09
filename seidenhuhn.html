@@ -14,17 +14,26 @@
   header{ display:flex; gap:.5rem; align-items:center; padding:.35rem .65rem; }
   .hud{ display:flex; gap:.4rem; font-weight:800; flex-wrap:wrap; }
   .pill{ background:var(--glass); border:2px solid #cde9d1; border-radius:999px; padding:.22rem .55rem; box-shadow:0 4px 16px rgba(0,0,0,.05); }
-  #playArea{ position:relative; overflow:hidden; border-radius:16px; border:2px solid #cde9d1; box-shadow:0 10px 30px rgba(0,0,0,.06); background:linear-gradient(180deg,#f8fff9 0%, #eef7f0 100%); display:grid; place-items:center; }
-  #uiBar{ position:relative; background:var(--glass); border-top:2px solid #cde9d1; backdrop-filter:saturate(140%) blur(6px); display:flex; justify-content:center; align-items:center; padding:.2rem 0 calc(.25rem + env(safe-area-inset-bottom)); }
-  .pad{ display:grid; grid-template-columns:48px 48px 48px; grid-template-rows:48px 48px 48px; gap:.28rem; }
+  #playArea{ position:relative; overflow:hidden; border-radius:16px; border:2px solid #cde9d1; box-shadow:0 10px 30px rgba(0,0,0,.06);
+             background:url('meadow.webp') center/cover no-repeat; padding-inline:clamp(8px,4vw,24px); padding-block:clamp(6px,2vh,16px); display:grid; place-items:center; }
+  .canvasFrame{ position:relative; width:100%; height:100%; display:grid; place-items:center; }
+  canvas{ display:block; max-width:100%; max-height:100%; touch-action:none; image-rendering:auto; border-radius:12px; background:linear-gradient(180deg,#f8fff9 0%, #eef7f0 100%); border:1px solid #d6ead7; box-shadow:0 10px 24px rgba(0,0,0,.04); }
+  #uiBar{ position:relative; border-top:2px solid #caa27a; background:url('wood.webp') center/cover no-repeat; display:flex; justify-content:center; align-items:center; padding:.25rem 0 calc(.35rem + env(safe-area-inset-bottom)); }
+  #uiBar::before{ content:''; position:absolute; inset:0; background:rgba(255,255,255,.18); pointer-events:none; }
+  .pad{ position:relative; z-index:1; display:grid; grid-template-columns:48px 48px 48px; grid-template-rows:48px 48px 48px; gap:.26rem; }
   .pad button{ width:48px; height:48px; border-radius:12px; border:none; background:#fff; border:2px solid #d7efe0; box-shadow:0 3px 0 #c7e5d3; font-size:1rem; }
   .pad .empty{ visibility:hidden; }
-  canvas{ display:block; width:100%; height:100%; touch-action:none; image-rendering:auto; }
-  /* Fullscreen Start */
   #startFS{ position:fixed; inset:0; z-index:9999; display:flex; align-items:flex-end; justify-content:center; background:#000; }
   #startFS::before{ content:''; position:absolute; inset:0; background:url('cover.webp') center/cover no-repeat; }
-  #play{ position:relative; margin: 1.2rem 0 calc(1.2rem + env(safe-area-inset-bottom)); padding:1rem 2rem; font-size:1.4rem; border:none; border-radius:18px; background:var(--brand); color:#fff; box-shadow:0 10px 20px rgba(67,160,71,.35), 0 6px 0 #2e7d32; }
+  #play{ position:relative; margin: 1.2rem 0 calc(1.2rem + env(safe-area-inset-bottom)); padding:1rem 2rem; font-size:1.4rem; border:none; border-radius:18px; background:#43a047; color:#fff; box-shadow:0 10px 20px rgba(67,160,71,.35), 0 6px 0 #2e7d32; }
   #play:active{ transform:translateY(2px); box-shadow:0 4px 0 #2e7d32; }
+  #over{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:9000; background:rgba(0,0,0,.35); }
+  .card{ background:#fff; border:2px solid #d6ead7; border-radius:16px; padding:1rem; width:min(90vw,420px); text-align:center; box-shadow:0 16px 40px rgba(0,0,0,.18); }
+  .card h3{ margin:.3rem 0 .8rem; }
+  .row{ display:flex; gap:.6rem; justify-content:center; }
+  .btn{ border:none; border-radius:14px; padding:.7rem 1.1rem; font-weight:800; }
+  .btn.primary{ background:#43a047; color:#fff; }
+  .btn.ghost{ background:#fff; border:2px solid #cfe7d3; }
   footer{ padding: .15rem .65rem .5rem; text-align:center; font-size:.85rem; color:#4f6b50; }
 </style>
 </head>
@@ -39,7 +48,9 @@
   </header>
 
   <section id="playArea">
-    <canvas id="game" width="720" height="1280" aria-label="Seidenhuhn sammelt Körner und Würmer"></canvas>
+    <div class="canvasFrame">
+      <canvas id="game" width="720" height="1280" aria-label="Seidenhuhn sammelt Körner und Würmer"></canvas>
+    </div>
   </section>
 
   <div id="uiBar">
@@ -50,63 +61,66 @@
     </div>
   </div>
 
-  <footer>Für Kinder · Offline spielbar</footer>
+  <footer>Für Kinder · Offline spielbar · v1.10.0</footer>
 </div>
 
-<!-- Fullscreen Start -->
 <div id="startFS">
   <button id="play" aria-label="Spiel starten">▶️ Start</button>
 </div>
 
+<div id="over">
+  <div class="card">
+    <h3>Spiel vorbei 💫</h3>
+    <p><strong>Punkte:</strong> <span id="fScore">0</span> · <strong>Highscore:</strong> <span id="fHi">0</span></p>
+    <div class="row">
+      <button class="btn primary" id="again">🔁 Nochmal</button>
+      <button class="btn ghost" id="menu">🏁 Start</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){ 'use strict';
-  // High-DPI crisp rendering
-  const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d', {alpha:false});
   const playArea = document.getElementById('playArea');
+  const frame = document.querySelector('.canvasFrame');
 
   function sizeCanvas(pxW, pxH){
     canvas.style.width = pxW + 'px';
     canvas.style.height = pxH + 'px';
-    canvas.width = Math.floor(pxW * dpr);
-    canvas.height = Math.floor(pxH * dpr);
+    canvas.width = Math.round(pxW * dpr);
+    canvas.height = Math.round(pxH * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
   }
 
-  // State with adaptive grid
   const state = {
-    grid: 36, cols: 18, rows: 26, // Startwerte; werden bei fit() angepasst
+    grid: 36, cols: 18, rows: 26,
     hen: {x:4,y:10},
-    dir: {x:1,y:0},
-    next: {x:1,y:0},
-    items: [], // {x,y,type:'grain'|'worm'}
-    score: 0,
-    level: 1,
-    tick: 220,
-    last: 0, acc: 0,
-    running: false,
+    dir: {x:1,y:0}, next: {x:1,y:0},
+    items: [], // {x,y,type:'grain'|'worm'|'gold'}
+    score: 0, level: 1, tick: 220,
+    last: 0, acc: 0, running: false,
     hi: parseInt(localStorage.getItem('hh_hi')||'0',10)
   };
   document.getElementById('hi').textContent = state.hi;
 
-  const henImg = new Image(); henImg.src = 'hen.webp'; // Bild liegt im Repo
+  function innerSize(el){ const cs=getComputedStyle(el); return {w: el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), h: el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)}; }
 
   function fit(){
-    const w = playArea.clientWidth;
-    const h = playArea.clientHeight;
-    // Ziel: möglichst voll ausfüllen. Fixiere eine Ziel-Reihenzahl und passe Spalten an.
+    const {w,h} = innerSize(playArea);
+    const {w:fw,h:fh} = innerSize(frame);
+    const W = Math.min(w, fw), H = Math.min(h, fh);
     const targetRows = 26;
-    let cell = Math.max(28, Math.floor(h / targetRows)); // Mindestzellgröße
-    let cols = Math.max(12, Math.floor(w / cell));
-    let rows = Math.max(16, Math.floor(h / cell));
-    // Rechne so, dass die Fläche nahezu voll ist
-    cell = Math.floor(Math.min(w/cols, h/rows));
+    let cell = Math.max(28, Math.floor(H / targetRows));
+    let cols = Math.max(12, Math.floor(W / cell));
+    let rows = Math.max(16, Math.floor(H / cell));
+    cell = Math.floor(Math.min(W/cols, H/rows));
     sizeCanvas(cols*cell, rows*cell);
     state.grid = cell; state.cols = cols; state.rows = rows;
-    // clamp hen position
     state.hen.x = Math.min(state.hen.x, cols-1);
     state.hen.y = Math.min(state.hen.y, rows-1);
     draw();
@@ -114,21 +128,21 @@
   new ResizeObserver(fit).observe(playArea);
   window.addEventListener('orientationchange', ()=> setTimeout(fit,0));
 
+  const henImg = new Image(); henImg.src = 'hen.webp'; // aus Repo
   function reset(){
-    state.dir = {x:1,y:0}; state.next = {x:1,y:0};
-    state.hen = {x: Math.floor(state.cols/2)-1, y: Math.floor(state.rows/2)};
+    state.dir={x:1,y:0}; state.next={x:1,y:0};
+    state.hen={x: Math.floor(state.cols/2)-1, y: Math.floor(state.rows/2)};
     state.items = Array.from({length:4}, spawnItem);
     state.score=0; state.level=1; state.tick=220;
     document.getElementById('score').textContent=0;
     document.getElementById('level').textContent=1;
   }
   function spawnItem(){
-    // 75% grain, 25% worm
-    const type = Math.random() < 0.75 ? 'grain' : 'worm';
+    const r=Math.random(); const type = r<0.65?'grain':(r<0.90?'worm':'gold');
     let x,y,tries=0;
     do{
-      x = Math.floor(Math.random()*state.cols);
-      y = Math.floor(Math.random()*state.rows);
+      x=Math.floor(Math.random()*state.cols);
+      y=Math.floor(Math.random()*state.rows);
       tries++; if(tries>300) break;
     }while((x===state.hen.x && y===state.hen.y) || state.items.some(i=>i && i.x===x && i.y===y));
     return {x,y,type};
@@ -136,53 +150,47 @@
   function setDir(x,y){ if(x===-state.dir.x && y===-state.dir.y) return; state.next={x,y}; }
 
   function step(){
-    state.dir = state.next;
-    const nx = state.hen.x + state.dir.x;
-    const ny = state.hen.y + state.dir.y;
-    if(nx<0 || ny<0 || nx>=state.cols || ny>=state.rows) return gameOver();
-    state.hen = {x:nx,y:ny};
-    // Eat items
+    state.dir=state.next;
+    const nx=state.hen.x+state.dir.x, ny=state.hen.y+state.dir.y;
+    if(nx<0||ny<0||nx>=state.cols||ny>=state.rows) return gameOver();
+    state.hen={x:nx,y:ny};
     for(let i=0;i<state.items.length;i++){
-      const it = state.items[i];
+      const it=state.items[i];
       if(it && it.x===nx && it.y===ny){
-        // score
-        const add = it.type==='worm' ? 25 : 10;
-        state.score += add; document.getElementById('score').textContent=state.score;
-        if(state.score > state.hi){ state.hi = state.score; localStorage.setItem('hh_hi', String(state.hi)); document.getElementById('hi').textContent = state.hi; }
-        if(state.score % 50 === 0){ state.level++; document.getElementById('level').textContent=state.level; state.tick = Math.max(110, state.tick-12); }
-        // respawn
-        state.items[i] = spawnItem();
+        let add=10; if(it.type==='worm') add=25; if(it.type==='gold') add=50;
+        state.score+=add; document.getElementById('score').textContent=state.score;
+        if(state.score>state.hi){ state.hi=state.score; localStorage.setItem('hh_hi', String(state.hi)); document.getElementById('hi').textContent=state.hi; }
+        if(state.score%50===0){ state.level++; document.getElementById('level').textContent=state.level; state.tick=Math.max(110, state.tick-12); }
+        state.items[i]=spawnItem();
       }
     }
   }
 
   function draw(){
     const g=state.grid; if(!g) return;
-    ctx.fillStyle='#eef7f0'; ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.strokeStyle='rgba(120,170,135,.35)'; ctx.lineWidth=1;
+    ctx.fillStyle='#f3fbf5'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.strokeStyle='rgba(120,170,135,.25)'; ctx.lineWidth=1;
     for(let x=0;x<=state.cols;x++){ ctx.beginPath(); ctx.moveTo(x*g+.5,0); ctx.lineTo(x*g+.5,canvas.height); ctx.stroke(); }
     for(let y=0;y<=state.rows;y++){ ctx.beginPath(); ctx.moveTo(0,y*g+.5); ctx.lineTo(canvas.width,y*g+.5); ctx.stroke(); }
-    // items
-    state.items.forEach((it,i)=> drawItem(it, i));
+    state.items.forEach((it,i)=> drawItem(it,i));
     drawHen(state.hen.x, state.hen.y);
   }
 
   function drawItem(it, idx){
     const g=state.grid, cx=it.x*g+g/2, cy=it.y*g+g/2;
-    const bob = Math.sin(performance.now()/500 + idx) * g*0.05;
-    ctx.save(); ctx.translate(cx, cy + bob);
+    const bob=Math.sin(performance.now()/520+idx)*g*0.05;
+    ctx.save(); ctx.translate(cx, cy+bob);
     if(it.type==='worm'){
-      // Wurm: geschwungen, rötlich
-      ctx.lineWidth = Math.max(2, g*0.08);
-      ctx.strokeStyle = '#d16b5e';
-      ctx.beginPath();
-      ctx.moveTo(-g*0.18, 0);
-      ctx.quadraticCurveTo(-g*0.05, -g*0.12, g*0.1, -g*0.02);
-      ctx.quadraticCurveTo(g*0.22, g*0.08, g*0.18, g*0.12);
-      ctx.stroke();
-      ctx.beginPath(); ctx.arc(g*0.18, g*0.12, g*0.04, 0, Math.PI*2); ctx.fillStyle='#d16b5e'; ctx.fill();
-    }else{
-      // Korn
+      ctx.lineWidth=Math.max(2,g*0.08); ctx.strokeStyle='#d16b5e';
+      ctx.beginPath(); ctx.moveTo(-g*0.18,0);
+      ctx.quadraticCurveTo(-g*0.05,-g*0.12,g*0.1,-g*0.02);
+      ctx.quadraticCurveTo(g*0.22,g*0.08,g*0.18,g*0.12); ctx.stroke();
+      ctx.beginPath(); ctx.arc(g*0.18,g*0.12,g*0.04,0,Math.PI*2); ctx.fillStyle='#d16b5e'; ctx.fill();
+    } else if(it.type==='gold'){
+      ctx.fillStyle='#ffd54f'; ctx.strokeStyle='#b38a00';
+      ctx.beginPath(); ctx.ellipse(0,0,g*0.24,g*0.18,Math.PI/8,0,Math.PI*2); ctx.fill(); ctx.lineWidth=2; ctx.stroke();
+      ctx.fillStyle='rgba(255,255,255,.85)'; ctx.beginPath(); ctx.moveTo(g*0.06,-g*0.12); ctx.lineTo(g*0.16,-g*0.12); ctx.lineTo(g*0.08,-g*0.02); ctx.closePath(); ctx.fill();
+    } else {
       ctx.fillStyle='#ffca28'; ctx.strokeStyle='#b28900';
       ctx.beginPath(); ctx.ellipse(0,0,g*0.22,g*0.16,Math.PI/7,0,Math.PI*2); ctx.fill(); ctx.lineWidth=2; ctx.stroke();
     }
@@ -190,58 +198,58 @@
   }
 
   function drawHen(x,y){
-    const g=state.grid; const size = Math.min(g*1.6, g*1.2 + 18); // größer & klar
-    const px = x*g + (g - size)/2;
-    const py = y*g + (g - size)/2;
-    const img = document.createElement('img'); img.src='hen.webp'; // ensure ref
-    if(document.readyState === 'complete'){}
-    const hen = new Image(); hen.src='hen.webp';
-    // Use a persistent image to avoid loading jank
-    if(window.__hen && window.__hen.complete){ ctx.save(); ctx.shadowColor='rgba(0,0,0,.15)'; ctx.shadowBlur=8; ctx.drawImage(window.__hen, px, py, size, size); ctx.restore(); }
-    else { window.__hen = hen; if(hen.complete){ ctx.save(); ctx.shadowColor='rgba(0,0,0,.15)'; ctx.shadowBlur=8; ctx.drawImage(hen, px, py, size, size); ctx.restore(); } else { ctx.fillStyle='#fff'; ctx.fillRect(px,py,size,size); } }
+    const g=state.grid; const size=Math.min(g*1.7, g*1.2+20);
+    const px=x*g+(g-size)/2, py=y*g+(g-size)/2;
+    const img=window.__hen||(window.__hen=new Image()); if(!img.src) img.src='hen.webp';
+    if(img.complete){ ctx.save(); ctx.shadowColor='rgba(0,0,0,.18)'; ctx.shadowBlur=8; ctx.drawImage(img, px, py, size, size); ctx.restore(); }
+    else { img.onload=()=>draw(); ctx.fillStyle='#fff'; ctx.fillRect(px,py,size,size); }
   }
 
-  function loop(ts){
-    if(!state.running) return;
-    if(!state.last) state.last=ts; const dt=ts-state.last; state.last=ts; state.acc+=dt;
-    while(state.acc>=state.tick){ step(); state.acc-=state.tick; }
-    draw(); requestAnimationFrame(loop);
+  function loop(ts){ if(!state.running) return; if(!state.last) state.last=ts; const dt=ts-state.last; state.last=ts; state.acc+=dt; while(state.acc>=state.tick){ step(); state.acc-=state.tick; } draw(); requestAnimationFrame(loop); }
+
+  function gameOver(){
+    state.running=false;
+    document.getElementById('fScore').textContent=state.score;
+    document.getElementById('fHi').textContent=state.hi;
+    document.getElementById('over').style.display='flex';
   }
 
-  function gameOver(){ state.running=false; document.getElementById('startFS').style.display='flex'; }
+  document.getElementById('again').addEventListener('click', ()=>{
+    document.getElementById('over').style.display='none';
+    reset(); fit(); state.running=true; state.last=0; state.acc=0; requestAnimationFrame(loop);
+  });
+  document.getElementById('menu').addEventListener('click', ()=>{
+    document.getElementById('over').style.display='none';
+    document.getElementById('startFS').style.display='flex';
+  });
 
-  // Start & controls
   document.getElementById('play').addEventListener('click', ()=>{
     document.getElementById('startFS').style.display='none';
-    reset(); fit();
-    state.running=true; state.last=0; state.acc=0; requestAnimationFrame(loop);
+    reset(); fit(); state.running=true; state.last=0; state.acc=0; requestAnimationFrame(loop);
   });
 
   document.getElementById('pad').addEventListener('click', (e)=>{
-    const b = e.target.closest('button'); if(!b) return;
-    const [x,y] = b.getAttribute('data-d').split(',').map(Number);
+    const b=e.target.closest('button'); if(!b) return;
+    const [x,y]=b.getAttribute('data-d').split(',').map(Number);
     setDir(x,y);
   });
 
-  // Swipe
   let s=null;
-  playArea.addEventListener('touchstart', (e)=>{ const t=e.touches[0]; s={x:t.clientX, y:t.clientY}; }, {passive:true});
-  playArea.addEventListener('touchend', (e)=>{
+  playArea.addEventListener('touchstart',(e)=>{ const t=e.touches[0]; s={x:t.clientX,y:t.clientY}; },{passive:true});
+  playArea.addEventListener('touchend',(e)=>{
     if(!s) return; const t=e.changedTouches[0];
     const dx=t.clientX-s.x, dy=t.clientY-s.y; const ax=Math.abs(dx), ay=Math.abs(dy);
-    if(Math.max(ax,ay) > 24){ if(ax>ay) setDir(Math.sign(dx),0); else setDir(0,Math.sign(dy)); }
+    if(Math.max(ax,ay)>24){ if(ax>ay) setDir(Math.sign(dx),0); else setDir(0,Math.sign(dy)); }
     s=null;
-  }, {passive:true});
+  },{passive:true});
 
-  // Keyboard (Desktop)
-  window.addEventListener('keydown', (e)=>{
+  window.addEventListener('keydown',(e)=>{
     if(e.key==='ArrowUp'||e.key==='w') setDir(0,-1);
     else if(e.key==='ArrowDown'||e.key==='s') setDir(0,1);
     else if(e.key==='ArrowLeft'||e.key==='a') setDir(-1,0);
     else if(e.key==='ArrowRight'||e.key==='d') setDir(1,0);
   });
 
-  // initial
   fit();
 })();
 </script>
