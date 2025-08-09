@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Seidenhuhn! – Kinder Snake (PWA)</title>
+  <meta name="theme-color" content="#8be9fd" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <style>
+    :root{ --bg:#f3fbff; --primary:#00bcd4; --accent:#ffca28; --accent2:#ff8a65; --ink:#10324a; --ok:#4caf50; --danger:#ef5350 }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
+    .wrap{display:grid;grid-template-rows:auto 1fr auto;min-height:100vh}
+    header{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-bottom:2px solid #e3f2fd;background:linear-gradient(180deg,#ffffff 0%, #e6f7ff 100%);position:sticky;top:0;z-index:5}
+    header .brand{display:flex;gap:.6rem;align-items:center}
+    .brand .logo{width:36px;height:36px;border-radius:50%;background:radial-gradient(circle at 35% 35%, #fff 0%, #e0f7fa 55%, #c8f1f8 100%);position:relative;box-shadow:inset 0 2px 6px rgba(0,0,0,.08)}
+    .logo:before{content:"";position:absolute;left:9px;top:12px;width:10px;height:8px;background:#ff7043;border-radius:0 50% 50% 50%;transform:rotate(45deg)}
+    .logo:after{content:"";position:absolute;left:15px;top:22px;width:8px;height:6px;background:#8d6e63;border-radius:40%}
+    .brand h1{font-size:1.1rem;margin:0}
+    .hud{display:flex;gap:.6rem;align-items:center;font-weight:600}
+    .pill{background:#fff;border:2px solid #d1eff7;border-radius:999px;padding:.35rem .6rem;display:flex;align-items:center;gap:.4rem}
+    .btn{border:none;border-radius:14px;padding:.55rem .8rem;font-weight:700;background:var(--primary);color:#fff;box-shadow:0 4px 0 #079db1;transform:translateY(0);transition:transform .05s}
+    .btn:active{transform:translateY(2px);box-shadow:0 2px 0 #079db1}
+    .btn.ghost{background:#fff;color:var(--ink);box-shadow:none;border:2px solid #cfeaf2}
+    #gameHolder{position:relative;display:grid;place-items:center;height:100%;}
+    canvas{width:100%;height:100%;touch-action:none;background:radial-gradient(circle at 50% 20%, #ffffff 0%, #f5fcff 40%, #e9f7ff 100%)}
+    .controls{position:fixed;left:0;right:0;bottom:.5rem;display:flex;justify-content:center;z-index:6;pointer-events:none}
+    .pad{pointer-events:auto;display:grid;grid-template-columns:64px 64px 64px;grid-template-rows:64px 64px 64px;gap:.6rem}
+    .pad button{width:64px;height:64px;border-radius:18px;border:none;background:#ffffffcc;border:2px solid #d7f0f6;box-shadow:0 4px 0 #c6e9f1;font-size:1.1rem}
+    .pad button:active{transform:translateY(2px);box-shadow:0 2px 0 #c6e9f1}
+    .pad .empty{visibility:hidden}
+    .modal{position:fixed;inset:0;background:rgba(16,50,74,.35);display:none;place-items:center;z-index:10;padding:1rem}
+    .modal.open{display:grid}
+    .card{background:#fff;border:2px solid #d1eff7;border-radius:20px;box-shadow:0 12px 40px rgba(0,0,0,.08);max-width:560px;width:100%;padding:1rem}
+    .card h2{margin:.25rem 0 0;font-size:1.4rem}
+    .card p{margin:.25rem 0 .75rem}
+    .row{display:flex;gap:.6rem;flex-wrap:wrap}
+    .row .btn{flex:1}
+    .settings label{display:flex;justify-content:space-between;align-items:center;padding:.5rem;border:1px dashed #cfeaf2;border-radius:12px;margin:.25rem 0}
+    footer{display:flex;gap:.6rem;justify-content:center;align-items:center;padding:.6rem;color:#5a7b92}
+    footer a{color:inherit}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <h1>Seidenhuhn!</h1>
+      </div>
+      <div class="hud">
+        <div class="pill" id="scorePill" aria-live="polite">Punkte: <span id="score">0</span></div>
+        <div class="pill">Level: <span id="level">1</span></div>
+        <button class="btn ghost" id="installBtn" hidden>⬇️ Installieren</button>
+        <button class="btn ghost" id="pauseBtn" aria-pressed="false" aria-label="Pause">⏸️ Pause</button>
+        <button class="btn" id="restartBtn" aria-label="Neustarten">🔄 Neu</button>
+        <button class="btn ghost" id="helpBtn" aria-label="Hilfe">❓</button>
+        <button class="btn ghost" id="settingsBtn" aria-label="Einstellungen">⚙️</button>
+      </div>
+    </header>
+
+    <main id="gameHolder">
+      <canvas id="game" width="720" height="1280" role="img" aria-label="Spielbereich: steuere ein Seidenhuhn um Körner zu sammeln."></canvas>
+
+      <div id="startOverlay" class="modal open" aria-modal="true" role="dialog">
+        <div class="card" role="document">
+          <h2>Los geht's! 🐔</h2>
+          <p>Wische oder nutze die großen Pfeile. Sammle Körner, wachse und mach „bok-bok“! Für Kinder ab 6 Jahren.</p>
+          <div class="row">
+            <button class="btn" id="startBtn">▶️ Start</button>
+            <button class="btn ghost" id="howBtn">❓ Hilfe</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="pauseModal" class="modal" aria-modal="true" role="dialog">
+        <div class="card"><h2>Pause ☕</h2><p>Durchatmen! Bereit?</p>
+          <div class="row"><button class="btn" id="resumeBtn">▶️ Weiter</button><button class="btn ghost" id="menuBtn">🏁 Beenden</button></div>
+        </div>
+      </div>
+
+      <div id="overModal" class="modal" aria-modal="true" role="dialog">
+        <div class="card">
+          <h2>Spiel vorbei 💫</h2>
+          <p><strong>Punkte:</strong> <span id="finalScore">0</span> · <strong>Bestleistung:</strong> <span id="hiScore">0</span></p>
+          <div class="row"><button class="btn" id="againBtn">🔁 Nochmal</button><button class="btn ghost" id="shareBtn">📣 Teilen</button></div>
+        </div>
+      </div>
+
+      <div id="helpModal" class="modal" aria-modal="true" role="dialog">
+        <div class="card">
+          <h2>Hilfe</h2>
+          <ul>
+            <li>Wische (↑ ↓ ← →) oder tippe auf die Pfeile.</li>
+            <li>Sammle Körner (gelb). Jeder Treffer gibt Punkte, Sound und lässt dich wachsen.</li>
+            <li>Stoße nicht gegen den Rand oder dich selbst.</li>
+            <li>Tippe oben auf <em>Pause</em> oder <em>Neu</em>.</li>
+          </ul>
+          <div class="row"><button class="btn" id="helpClose">Alles klar!</button></div>
+        </div>
+      </div>
+
+      <div id="settingsModal" class="modal" aria-modal="true" role="dialog">
+        <div class="card settings">
+          <h2>Einstellungen</h2>
+          <label>Sound <input type="checkbox" id="soundToggle" checked aria-label="Sound umschalten"/></label>
+          <label>Vibration <input type="checkbox" id="vibeToggle" checked aria-label="Vibration umschalten"/></label>
+          <label>Geschwindigkeit
+            <select id="speedSelect" aria-label="Geschwindigkeit einstellen">
+              <option value="easy">Leicht</option>
+              <option value="normal" selected>Normal</option>
+              <option value="fast">Schnell</option>
+            </select>
+          </label>
+          <label>Skin
+            <select id="skinSelect" aria-label="Skin wählen">
+              <option value="silkie" selected>Seidenhuhn (weiß)</option>
+              <option value="silkie-brown">Seidenhuhn (braun)</option>
+              <option value="chick">Küken</option>
+            </select>
+          </label>
+          <fieldset style="border:1px dashed #cfeaf2;border-radius:12px;padding:.6rem">
+            <legend>Seidenhuhn-Stimme</legend>
+            <div class="row">
+              <input type="file" id="soundFile" accept="audio/*" aria-label="Audio-Datei wählen" class="btn ghost"/>
+              <button class="btn ghost" id="recBtn">🎙️ Aufnehmen</button>
+              <button class="btn" id="testSoundBtn">▶️ Test</button>
+            </div>
+            <small>Du kannst ein echtes Seidenhuhn-Geräusch aufnehmen oder als Datei laden. Wird lokal gespeichert.</small>
+          </fieldset>
+          <div class="row"><button class="btn" id="settingsClose">Fertig</button></div>
+        </div>
+      </div>
+
+      <div id="cardsModal" class="modal" aria-modal="true" role="dialog">
+        <div class="card">
+          <h2>Wissenskarten 🧠🐔</h2>
+          <p id="cardText">Seidenhühner sind besonders flauschig, weil sie fadenförmige Federn haben.</p>
+          <div class="row"><button class="btn" id="nextCard">Nächste Karte</button><button class="btn ghost" id="closeCards">Schließen</button></div>
+        </div>
+      </div>
+
+      <div class="controls" aria-hidden="false">
+        <div class="pad" aria-label="Richtungsknöpfe">
+          <div class="empty"></div>
+          <button id="upBtn" aria-label="Nach oben">⬆️</button>
+          <div class="empty"></div>
+          <button id="leftBtn" aria-label="Nach links">⬅️</button>
+          <div class="empty"></div>
+          <button id="rightBtn" aria-label="Nach rechts">➡️</button>
+          <div class="empty"></div>
+          <button id="downBtn" aria-label="Nach unten">⬇️</button>
+          <div class="empty"></div>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <small>Offline spielbar · PWA installierbar · Für Kinder 6+ · <span id="version"></span> · <a href="#" id="openCards">Wissenskarten</a> · <a href="#" id="parentLink">Eltern</a></small>
+    </footer>
+  </div>
+
+<!-- Eltern-Gate Modal -->
+<div id="parentGate" class="modal" aria-modal="true" role="dialog">
+  <div class="card">
+    <h2>Elternbereich 🔒</h2>
+    <p>Bitte löse die Aufgabe:</p>
+    <div class="row"><strong id="gateTask">3 + 4 = ?</strong></div>
+    <div class="row"><input id="gateInput" aria-label="Antwort" class="pill" style="padding:.5rem"/><button class="btn" id="gateOk">OK</button><button class="btn ghost" id="gateCancel">Abbrechen</button></div>
+  </div>
+</div>
+
+<!-- Eltern-Einstellungen Modal -->
+<div id="parentModal" class="modal" aria-modal="true" role="dialog">
+  <div class="card settings">
+    <h2>Eltern-Einstellungen</h2>
+    <label>Lautstärke gesamt
+      <input type="range" id="volumeRange" min="0" max="100" value="80"/>
+    </label>
+    <label>Spiellimit pro Sitzung
+      <select id="limitSelect">
+        <option value="0">Unbegrenzt</option>
+        <option value="5">5 Minuten</option>
+        <option value="10">10 Minuten</option>
+        <option value="15">15 Minuten</option>
+      </select>
+    </label>
+    <label>Teilen-Button erlauben
+      <input type="checkbox" id="shareToggle" checked/>
+    </label>
+    <div class="row"><button class="btn" id="parentClose">Fertig</button></div>
+  </div>
+</div>
+
+<!-- Zeitlimit Modal -->
+<div id="timeModal" class="modal" aria-modal="true" role="dialog">
+  <div class="card">
+    <h2>Pause-Zeit ⏰</h2>
+    <p>Die Spielzeit ist vorbei. Bitte mach eine kurze Pause.</p>
+    <div class="row"><button class="btn" id="timeOk">Okay</button><button class="btn ghost" id="timeMore">Mehr Zeit</button></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const version = 'v1.3.0';
+  document.getElementById('version').textContent = version;
+
+  // PWA install prompt handling
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e)=>{ e.preventDefault(); deferredPrompt = e; installBtn.hidden = false; });
+  const installBtn = document.getElementById('installBtn');
+  installBtn?.addEventListener('click', async()=>{ if(!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice; installBtn.hidden = true; });
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  }
+
+  // -------- Utility & State --------
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const levelEl = document.getElementById('level');
+  const finalScoreEl = document.getElementById('finalScore');
+  const hiScoreEl = document.getElementById('hiScore');
+
+  const startOverlay = document.getElementById('startOverlay');
+  const pauseModal = document.getElementById('pauseModal');
+  const overModal = document.getElementById('overModal');
+  const helpModal = document.getElementById('helpModal');
+  const settingsModal = document.getElementById('settingsModal');
+
+  const state = {
+    running:false, paused:false,
+    grid: 32, cols: 20, rows: 34,
+    tickMs: 130, dir:{x:1,y:0}, nextDir:{x:1,y:0},
+    snake:[], grow:0, food:{x:10,y:10}, score:0, level:1,
+    vibe:true, sound:true, skin:'silkie', volume:0.8,
+    sessionMs:0, sessionLimitMin:0, allowShare:true,
+    lastTime:0, accumulator:0,
+    soundUrl: null, recorder:null
+  };
+
+  function fitCanvas(){
+    const holder = document.getElementById('gameHolder');
+    const w = holder.clientWidth, h = holder.clientHeight;
+    const cell = Math.floor(Math.min(w/state.cols, h/state.rows));
+    canvas.width = state.cols * cell; canvas.height = state.rows * cell; state.grid = cell;
+  }
+  window.addEventListener('resize', fitCanvas); fitCanvas();
+
+  // -------- Audio --------
+  const AudioCtx = window.AudioContext || window.webkitAudioContext; let audioCtx = null; let masterGain=null;
+  function ensureAudio(){ if(!audioCtx){ audioCtx = new AudioCtx(); } if(!masterGain){ masterGain = audioCtx.createGain(); masterGain.gain.value = state.volume ?? 0.8; masterGain.connect(audioCtx.destination); } }
+
+  function synthCluck(){ if(!state.sound) return; ensureAudio(); const now = audioCtx.currentTime; const osc1 = audioCtx.createOscillator(); const osc2 = audioCtx.createOscillator(); const gain = audioCtx.createGain(); osc1.type='square'; osc2.type='triangle'; osc1.frequency.value=380; osc2.frequency.value=520; gain.gain.value=0.0001; gain.gain.exponentialRampToValueAtTime(0.35, now+0.01); gain.gain.exponentialRampToValueAtTime(0.0001, now+0.12); osc1.connect(gain); osc2.connect(gain); gain.connect(masterGain); osc1.start(now); osc2.start(now); osc1.stop(now+0.14); osc2.stop(now+0.12); }
+
+  let sampleBuffer=null;
+  async function playSample(){
+    if(!state.sound) return; if(!state.soundUrl){ synthCluck(); return; }
+    try{ ensureAudio(); const res = await fetch(state.soundUrl); const buf = await res.arrayBuffer(); sampleBuffer = await audioCtx.decodeAudioData(buf); const src = audioCtx.createBufferSource(); src.buffer = sampleBuffer; src.connect(masterGain); src.start(); }catch(e){ synthCluck(); }
+  }
+
+  // -------- Game Logic --------
+  function resetGame(){ state.dir={x:1,y:0}; state.nextDir={x:1,y:0}; state.snake=[{x:4,y:10},{x:3,y:10},{x:2,y:10}]; state.grow=0; state.food=randomFreeCell(); state.score=0; state.level=1; state.tickMs=speedToMs(getSaved('speed')||'normal'); scoreEl.textContent=state.score; levelEl.textContent=state.level; }
+  function speedToMs(s){ if(s==='easy') return 170; if(s==='fast') return 90; return 130; }
+  function randomFreeCell(){ let x,y,tries=0; do{ x=Math.floor(Math.random()*state.cols); y=Math.floor(Math.random()*state.rows); tries++; if(tries>200) break; }while(state.snake.some(p=>p.x===x && p.y===y)); return {x,y}; }
+  function setDir(nx,ny){ if(nx===-state.dir.x && ny===-state.dir.y) return; state.nextDir={x:nx,y:ny}; }
+  function step(){ state.dir=state.nextDir; const head={x:state.snake[0].x+state.dir.x, y:state.snake[0].y+state.dir.y}; if(head.x<0||head.y<0||head.x>=state.cols||head.y>=state.rows) return gameOver(); if(state.snake.some((p,i)=>i>0&&p.x===head.x&&p.y===head.y)) return gameOver(); state.snake.unshift(head); if(head.x===state.food.x && head.y===state.food.y){ state.grow+=2; state.food=randomFreeCell(); state.score+=10; scoreEl.textContent=state.score; if(state.score%50===0){ state.level++; levelEl.textContent=state.level; state.tickMs=Math.max(70,state.tickMs-6); pulse(scoreEl.parentElement);} playSample(); vibe(35);} if(state.grow>0){ state.grow--; } else { state.snake.pop(); } }
+  function pulse(el){ el.animate([{transform:'scale(1)'},{transform:'scale(1.08)'},{transform:'scale(1)'}],{duration:300,easing:'ease-out'}); }
+
+  // -------- Rendering --------
+  function draw(){ const g=state.grid; ctx.clearRect(0,0,canvas.width,canvas.height); ctx.globalAlpha=.25; ctx.strokeStyle='#cfeaf2'; ctx.lineWidth=1; for(let x=0;x<=state.cols;x++){ ctx.beginPath(); ctx.moveTo(x*g+.5,0); ctx.lineTo(x*g+.5, canvas.height); ctx.stroke(); } for(let y=0;y<=state.rows;y++){ ctx.beginPath(); ctx.moveTo(0,y*g+.5); ctx.lineTo(canvas.width, y*g+.5); ctx.stroke(); } ctx.globalAlpha=1; drawGrain(state.food.x,state.food.y); for(let i=state.snake.length-1;i>=0;i--){ const p=state.snake[i]; drawSilkie(p.x,p.y,i===0); } }
+  function drawGrain(x,y){ const g=state.grid; const cx=x*g+g/2, cy=y*g+g/2; ctx.save(); ctx.translate(cx,cy); ctx.fillStyle='gold'; ctx.strokeStyle='#d4a321'; ctx.beginPath(); ctx.ellipse(0,0,g*0.18,g*0.12,Math.PI/6,0,Math.PI*2); ctx.fill(); ctx.lineWidth=2; ctx.stroke(); ctx.restore(); }
+  function drawSilkie(x,y,isHead){ const g=state.grid; const px=x*g, py=y*g; const cx=px+g/2, cy=py+g/2; ctx.save(); ctx.translate(cx,cy); const r=g*0.42; const grad=ctx.createRadialGradient(-r*0.3,-r*0.3,r*0.2,0,0,r); const skin=state.skin; let rim='#cfeaf2', body1='#ffffff'; if(skin==='silkie-brown'){ rim='#e6d6c2'; body1='#fff8ef'; } if(skin==='chick'){ rim='#ffe3a1'; body1='#fff3c7'; }
+    grad.addColorStop(0, body1); grad.addColorStop(1, rim); ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill(); ctx.strokeStyle = skin==='chick'?'#c49a6c':'#8d6e63'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(-g*0.12, r*0.6); ctx.lineTo(-g*0.12, r*0.9); ctx.moveTo( g*0.12, r*0.6); ctx.lineTo( g*0.12, r*0.9); ctx.stroke(); if(isHead){ ctx.fillStyle = skin==='chick'?'#e69a2e':'#ff7043'; ctx.beginPath(); ctx.moveTo(r*0.2, -g*0.02); ctx.lineTo(r*0.45, 0); ctx.lineTo(r*0.2, g*0.02); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#10324a'; ctx.beginPath(); ctx.arc(-g*0.08,-g*0.08,g*0.05,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc( g*0.02,-g*0.04,g*0.04,0,Math.PI*2); ctx.fill(); if(skin!=='chick'){ ctx.fillStyle = '#ffffffcc'; ctx.beginPath(); ctx.ellipse(-g*0.05,-r*0.5, g*0.25, g*0.18, 0,0,Math.PI*2); ctx.fill(); } }
+    ctx.restore(); }
+
+  function loop(ts){ if(!state.running){ return; } if(state.paused){ requestAnimationFrame(loop); return; } if(!state.lastTime) state.lastTime=ts; const dt=ts-state.lastTime; state.lastTime=ts; state.accumulator+=dt; while(state.accumulator>=state.tickMs){ step(); state.accumulator-=state.tickMs; }
+    // session timer
+    state.sessionMs += dt;
+    if(state.sessionLimitMin>0 && state.sessionMs >= state.sessionLimitMin*60000){ state.paused=true; state.running=false; document.getElementById('timeModal').classList.add('open'); }
+    draw(); requestAnimationFrame(loop); }
+  function gameOver(){ state.running=false; finalScoreEl.textContent=state.score; const hi=Math.max(getSaved('hiscore')||0, state.score); save('hiscore',hi); hiScoreEl.textContent=hi; overModal.classList.add('open'); }
+
+  // Input
+  ['up','down','left','right'].forEach(dir=>{ document.getElementById(dir+'Btn').addEventListener('click',()=>{ if(dir==='up') setDir(0,-1); if(dir==='down') setDir(0,1); if(dir==='left') setDir(-1,0); if(dir==='right') setDir(1,0); }); });
+  window.addEventListener('keydown',(e)=>{ const k=e.key; if(k==='ArrowUp'||k==='w') setDir(0,-1); else if(k==='ArrowDown'||k==='s') setDir(0,1); else if(k==='ArrowLeft'||k==='a') setDir(-1,0); else if(k==='ArrowRight'||k==='d') setDir(1,0); else if(k===' ') togglePause(); });
+  let touchStart=null; canvas.addEventListener('touchstart',(e)=>{ if(e.touches.length===1){ const t=e.touches[0]; touchStart={x:t.clientX,y:t.clientY,time:performance.now()}; } },{passive:true}); canvas.addEventListener('touchend',(e)=>{ if(!touchStart) return; const dx=(e.changedTouches[0].clientX-touchStart.x); const dy=(e.changedTouches[0].clientY-touchStart.y); const adx=Math.abs(dx), ady=Math.abs(dy); if(Math.max(adx,ady)>24){ if(adx>ady){ setDir(Math.sign(dx),0);} else { setDir(0,Math.sign(dy)); } } touchStart=null; },{passive:true});
+
+  document.getElementById('pauseBtn').addEventListener('click', togglePause);
+  document.getElementById('restartBtn').addEventListener('click', ()=>{ resetGame(); startGame(); });
+  document.getElementById('startBtn').addEventListener('click', ()=>{ startOverlay.classList.remove('open'); startGame(); });
+  document.getElementById('howBtn').addEventListener('click', ()=>{ startOverlay.classList.remove('open'); helpModal.classList.add('open'); });
+  document.getElementById('resumeBtn').addEventListener('click', togglePause);
+  document.getElementById('menuBtn').addEventListener('click', ()=>{ pauseModal.classList.remove('open'); startOverlay.classList.add('open'); state.running=false; });
+  document.getElementById('againBtn').addEventListener('click', ()=>{ overModal.classList.remove('open'); resetGame(); startGame(); });
+  document.getElementById('shareBtn').addEventListener('click', async()=>{ const text=`Ich habe ${state.score} Punkte bei Seidenhuhn! erreicht 🐔✨`; try{ if(navigator.share){ await navigator.share({title:'Seidenhuhn!', text}); } else { await navigator.clipboard.writeText(text); alert('Text kopiert!'); } }catch(e){} });
+
+  document.getElementById('helpBtn').addEventListener('click', ()=> helpModal.classList.add('open'));
+  document.getElementById('helpClose').addEventListener('click', ()=> helpModal.classList.remove('open'));
+  document.getElementById('settingsBtn').addEventListener('click', ()=> settingsModal.classList.add('open'));
+  document.getElementById('settingsClose').addEventListener('click', ()=> settingsModal.classList.remove('open'));
+  document.getElementById('soundToggle').addEventListener('change',(e)=>{ state.sound=e.target.checked; save('sound',state.sound); });
+  document.getElementById('vibeToggle').addEventListener('change',(e)=>{ state.vibe=e.target.checked; save('vibe',state.vibe); });
+  document.getElementById('speedSelect').addEventListener('change',(e)=>{ save('speed',e.target.value); state.tickMs=speedToMs(e.target.value); });
+  document.getElementById('skinSelect').addEventListener('change',(e)=>{ state.skin=e.target.value; save('skin',state.skin); });
+
+  // Sound file upload
+  const fileInput = document.getElementById('soundFile');
+  fileInput.addEventListener('change', async(e)=>{ const f=e.target.files?.[0]; if(!f) return; const url = URL.createObjectURL(f); state.soundUrl=url; save('soundUrl', url); });
+  // Record via microphone
+  const recBtn = document.getElementById('recBtn');
+  recBtn.addEventListener('click', async()=>{
+    try{
+      if(state.recorder && state.recorder.state==='recording'){ state.recorder.stop(); recBtn.textContent='🎙️ Aufnehmen'; return; }
+      const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+      const chunks=[]; const r = new MediaRecorder(stream);
+      r.ondataavailable = e=> chunks.push(e.data);
+      r.onstop = ()=>{ const blob = new Blob(chunks, {type:'audio/webm'}); const url = URL.createObjectURL(blob); state.soundUrl=url; save('soundUrl', url); recBtn.textContent='🎙️ Aufnehmen'; };
+      state.recorder = r; r.start(); recBtn.textContent='⏹️ Stop';
+      setTimeout(()=>{ if(r.state==='recording') r.stop(); }, 2000);
+    }catch(e){ alert('Mikrofon nicht verfügbar.'); }
+  });
+  document.getElementById('testSoundBtn').addEventListener('click', ()=>{ playSample(); });
+
+  function togglePause(){ if(!state.running){ return; } state.paused=!state.paused; document.getElementById('pauseBtn').setAttribute('aria-pressed', String(state.paused)); if(state.paused){ pauseModal.classList.add('open'); } else { pauseModal.classList.remove('open'); } }
+  function vibe(ms=40){ if(!state.vibe) return; if(navigator.vibrate){ navigator.vibrate(ms); } }
+  function save(k,v){ localStorage.setItem('seidenhuhn_'+k, JSON.stringify(v)); }
+  function getSaved(k){ const v=localStorage.getItem('seidenhuhn_'+k); return v?JSON.parse(v):null; }
+
+  // Wissenskarten
+  const cards=[
+    'Seidenhühner haben fünf Zehen – die meisten Hühner nur vier.',
+    'Ihre Federn fühlen sich wie Fell an, weil die Federäste kaum verhaken.',
+    'Seidenhühner sind ruhige, freundliche Tiere – gut für Kinderhöfe.',
+    'Sie legen kleinere, cremefarbene Eier und sind gute Glucken.',
+    'Hühner trinken Wasser mit kleinen, schnellen Schlucken – wie mit einem Strohhalm!',
+    'Körner, Gemüse und Insekten gehören zu einer ausgewogenen Hühner-Mahlzeit.',
+    'Hühner kommunizieren mit über 20 Lauten – vom Lockruf bis zur Warnung.',
+    'Sonnenschutz ist wichtig: Hühner suchen gern Schatten an heißen Tagen.'
+  ];
+  let cardIdx=0; const cardsModal=document.getElementById('cardsModal');
+  document.getElementById('openCards').addEventListener('click',(e)=>{ e.preventDefault(); cardsModal.classList.add('open'); });
+  document.getElementById('closeCards').addEventListener('click',()=> cardsModal.classList.remove('open'));
+  document.getElementById('nextCard').addEventListener('click',()=>{ cardIdx=(cardIdx+1)%cards.length; document.getElementById('cardText').textContent=cards[cardIdx]; });
+
+  // Extended saved settings
+  state.sound = getSaved('sound') ?? true; document.getElementById('soundToggle').checked=state.sound;
+  state.vibe = getSaved('vibe') ?? true; document.getElementById('vibeToggle').checked=state.vibe;
+  const savedSpeed = getSaved('speed') || 'normal'; document.getElementById('speedSelect').value=savedSpeed;
+  state.skin = getSaved('skin') || 'silkie'; document.getElementById('skinSelect').value=state.skin;
+  const savedUrl = getSaved('soundUrl'); if(savedUrl) state.soundUrl=savedUrl;
+  const savedVol = getSaved('volume'); if(typeof savedVol === 'number') state.volume = savedVol;
+  const savedLimit = getSaved('limitMin'); if(typeof savedLimit === 'number') state.sessionLimitMin = savedLimit;
+  const savedShare = getSaved('allowShare'); if(typeof savedShare === 'boolean') state.allowShare = savedShare;
+
+  // Share toggle apply
+  const shareBtn = document.getElementById('shareBtn');
+  function applyShare(){ if(shareBtn){ shareBtn.style.display = state.allowShare?'' : 'none'; } }
+  applyShare();
+
+  // Parent link + gate
+  const parentLink = document.getElementById('parentLink');
+  const parentGate = document.getElementById('parentGate');
+  const parentModal = document.getElementById('parentModal');
+  const gateTask = document.getElementById('gateTask');
+  const gateInput = document.getElementById('gateInput');
+  let gateAnswer = 7;
+  function newGate(){ const a=Math.floor(3+Math.random()*7); const b=Math.floor(1+Math.random()*6); gateAnswer=a+b; gateTask.textContent=`${a} + ${b} = ?`; gateInput.value=''; }
+  parentLink.addEventListener('click',(e)=>{ e.preventDefault(); newGate(); parentGate.classList.add('open'); });
+  document.getElementById('gateCancel').addEventListener('click',()=> parentGate.classList.remove('open'));
+  document.getElementById('gateOk').addEventListener('click',()=>{ if(Number(gateInput.value)===gateAnswer){ parentGate.classList.remove('open');
+      document.getElementById('volumeRange').value = Math.round((state.volume||0.8)*100);
+      document.getElementById('limitSelect').value = String(state.sessionLimitMin||0);
+      document.getElementById('shareToggle').checked = !!state.allowShare;
+      parentModal.classList.add('open'); } else { gateInput.animate([{background:'#ffd3d3'},{background:'#fff'}],{duration:400}); }});
+  document.getElementById('parentClose').addEventListener('click',()=> parentModal.classList.remove('open'));
+  document.getElementById('volumeRange').addEventListener('input',(e)=>{ ensureAudio(); const v = Number(e.target.value)/100; state.volume=v; if(masterGain) masterGain.gain.value=v; save('volume', v); });
+  document.getElementById('limitSelect').addEventListener('change',(e)=>{ state.sessionLimitMin = Number(e.target.value); save('limitMin', state.sessionLimitMin); });
+  document.getElementById('shareToggle').addEventListener('change',(e)=>{ state.allowShare = e.target.checked; save('allowShare', state.allowShare); applyShare(); });
+
+  // Time modal
+  document.getElementById('timeOk').addEventListener('click',()=>{ document.getElementById('timeModal').classList.remove('open'); startOverlay.classList.add('open'); });
+  document.getElementById('timeMore').addEventListener('click',()=>{ document.getElementById('timeModal').classList.remove('open'); newGate(); parentGate.classList.add('open'); });
+
+  // Start
+  resetGame();
+  function startGame(){ state.running=true; state.paused=false; state.lastTime=0; state.accumulator=0; state.sessionMs=0; requestAnimationFrame(loop); }
+})();
+</script>
+</body>
+</html>
