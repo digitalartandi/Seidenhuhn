@@ -1,10 +1,10 @@
 {
-  "name": "Seidenhuhn! – Kinder Snake",
-  "short_name": "Seidenhuhn!",
+  "name": "Hühnerhof‑Hüpfer!",
+  "short_name": "Hühner-Hüpfer",
   "start_url": "./seidenhuhn.html",
   "display": "standalone",
-  "background_color": "#f3fbff",
-  "theme_color": "#8be9fd",
+  "background_color": "#f7fbf4",
+  "theme_color": "#43a047",
   "icons": [
     {
       "src": "icon-192.png",
@@ -20,7 +20,7 @@
       "src": "maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "maskable any"
+      "purpose": "any maskable"
     }
   ]
 }
