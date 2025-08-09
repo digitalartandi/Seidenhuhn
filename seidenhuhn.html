@@ -16,11 +16,12 @@
   .pill{ background:#fff; border:2px solid #cdebd2; border-radius:999px; padding:.25rem .5rem; }
   #gameHolder{ position:relative; display:grid; place-items:center; }
   canvas{ width:100%; height:100%; display:block; background:radial-gradient(circle at 50% 20%, #ffffff 0%, #f5fcff 45%, #e3f2fd 100%); }
-  .controls{ position:fixed; left:0; right:0; bottom:calc(.5rem + env(safe-area-inset-bottom)); display:flex; justify-content:center; pointer-events:none; }
+  .controls{ position:fixed; left:0; right:0; bottom:calc(.5rem + env(safe-area-inset-bottom)); display:flex; justify-content:center; pointer-events:none; z-index:50; }
   .pad{ pointer-events:auto; display:grid; grid-template-columns:72px 72px 72px; grid-template-rows:72px 72px 72px; gap:.6rem; }
   .pad button{ width:72px; height:72px; border-radius:18px; border:none; background:#ffffff; border:2px solid #cdebd2; box-shadow:0 4px 0 #b8dfbf; font-size:1.2rem; }
   .pad .empty{ visibility:hidden; }
-  #start{ position:fixed; inset:0; display:flex; align-items:flex-end; justify-content:center; z-index:10; background:#000; }
+  /* Startscreen always on top */
+  #start{ position:fixed; inset:0; display:flex; align-items:flex-end; justify-content:center; z-index:9999; background:#000; }
   #start::before{ content:''; position:absolute; inset:0; background:url('cover.webp') center/cover no-repeat; }
   #start .box{ position:relative; width:100%; display:flex; justify-content:center; }
   #play{ margin: 1.2rem 0 calc(1.2rem + env(safe-area-inset-bottom)); padding:1rem 2rem; font-size:1.4rem; border:none; border-radius:16px; background:#43a047; color:#fff; box-shadow:0 6px 0 #2e7d32; }
@@ -54,15 +55,19 @@
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d', { alpha:false });
   const holder = document.getElementById('gameHolder');
+
   function fit(){ const w=holder.clientWidth, h=holder.clientHeight; const cell=Math.floor(Math.min(w/state.cols, h/state.rows)); canvas.width=state.cols*cell; canvas.height=state.rows*cell; state.grid=cell; draw(); }
   window.addEventListener('resize', fit); window.addEventListener('orientationchange', ()=> setTimeout(fit,0));
 
   const state = { grid:32, cols:20, rows:34, dir:{x:1,y:0}, nextDir:{x:1,y:0}, snake:[], grow:0, food:{x:10,y:10}, score:0, level:1, tickMs:200, last:0, acc:0, running:false };
+
+  // Sprite
   const henImg = new Image(); henImg.src = 'hen.webp';
 
   function reset(){ state.snake=[{x:4,y:10},{x:3,y:10},{x:2,y:10}]; state.dir={x:1,y:0}; state.nextDir={x:1,y:0}; state.food=randomFree(); state.grow=0; state.score=0; state.level=1; state.tickMs=200; document.getElementById('score').textContent=0; document.getElementById('level').textContent=1; }
   function randomFree(){ let x,y; do{ x=Math.floor(Math.random()*state.cols); y=Math.floor(Math.random()*state.rows); }while(state.snake.some(p=>p.x===x&&p.y===y)); return {x,y}; }
   function setDir(x,y){ if(x===-state.dir.x && y===-state.dir.y) return; state.nextDir={x,y}; }
+
   function step(){ state.dir=state.nextDir; const head={x:state.snake[0].x+state.dir.x, y:state.snake[0].y+state.dir.y};
     if(head.x<0||head.y<0||head.x>=state.cols||head.y>=state.rows) return gameOver();
     if(state.snake.some((p,i)=>i>0&&p.x===head.x&&p.y===head.y)) return gameOver();
@@ -70,6 +75,7 @@
     if(head.x===state.food.x && head.y===state.food.y){ state.grow+=2; state.food=randomFree(); state.score+=10; document.getElementById('score').textContent=state.score; if(state.score%50===0){ state.level++; document.getElementById('level').textContent=state.level; state.tickMs=Math.max(110, state.tickMs-12); } }
     if(state.grow>0) state.grow--; else state.snake.pop();
   }
+
   function draw(){ const g=state.grid; if(!g) return;
     ctx.fillStyle='#e8f5e9'; ctx.fillRect(0,0,canvas.width,canvas.height);
     ctx.strokeStyle='rgba(141,180,150,.35)'; ctx.lineWidth=1;
@@ -78,17 +84,39 @@
     drawGrain(state.food.x, state.food.y);
     for(let i=state.snake.length-1;i>=0;i--) drawHen(state.snake[i].x, state.snake[i].y, i===0);
   }
+
   function drawGrain(x,y){ const g=state.grid,cx=x*g+g/2,cy=y*g+g/2; ctx.save(); ctx.translate(cx,cy); ctx.fillStyle='#ffca28'; ctx.strokeStyle='#b28900'; ctx.beginPath(); ctx.ellipse(0,0,g*0.18,g*0.12,Math.PI/6,0,Math.PI*2); ctx.fill(); ctx.lineWidth=2; ctx.stroke(); ctx.restore(); }
   function drawHen(x,y,isHead){ const g=state.grid, px=x*g, py=y*g, pad=g*0.06, size=g-pad*2; if(henImg.complete) ctx.drawImage(henImg, px+pad, py+pad, size, size); else { ctx.fillStyle='#fff'; ctx.fillRect(px+pad,py+pad,size,size); } }
+
   function loop(ts){ if(!state.running) return; if(!state.last) state.last=ts; const dt=ts-state.last; state.last=ts; state.acc+=dt; while(state.acc>=state.tickMs){ step(); state.acc-=state.tickMs; } draw(); requestAnimationFrame(loop); }
-  function gameOver(){ state.running=false; document.getElementById('start').style.display='flex'; }
 
-  document.getElementById('play').addEventListener('click', ()=>{ document.getElementById('start').style.display='none'; reset(); fit(); state.running=true; state.last=0; state.acc=0; requestAnimationFrame(loop); });
+  function addControls(){
+    if(document.getElementById('ctrls')) return;
+    const padHtml = '<div class="controls" id="ctrls"><div class="pad">'
+      +'<div class="empty"></div><button id="up">⬆️</button><div class="empty"></div>'
+      +'<button id="left">⬅️</button><div class="empty"></div><button id="right">➡️</button>'
+      +'<div class="empty"></div><button id="down">⬇️</button><div class="empty"></div>'
+      +'</div></div>';
+    document.body.insertAdjacentHTML('beforeend', padHtml);
+    ['up','down','left','right'].forEach(id=>{
+      document.getElementById(id).addEventListener('click', ()=>{
+        if(id==='up') setDir(0,-1);
+        if(id==='down') setDir(0,1);
+        if(id==='left') setDir(-1,0);
+        if(id==='right') setDir(1,0);
+      });
+    });
+  }
+  function removeControls(){ const c=document.getElementById('ctrls'); if(c) c.remove(); }
+
+  function gameOver(){ state.running=false; removeControls(); document.getElementById('start').style.display='flex'; }
+
+  document.getElementById('play').addEventListener('click', ()=>{
+    document.getElementById('start').style.display='none';
+    reset(); fit(); addControls();
+    state.running=true; state.last=0; state.acc=0; requestAnimationFrame(loop);
+  });
   window.addEventListener('keydown', e=>{ if(e.key==='ArrowUp'||e.key==='w') setDir(0,-1); else if(e.key==='ArrowDown'||e.key==='s') setDir(0,1); else if(e.key==='ArrowLeft'||e.key==='a') setDir(-1,0); else if(e.key==='ArrowRight'||e.key==='d') setDir(1,0); });
-
-  const padHtml = '<div class="controls"><div class="pad"><div class="empty"></div><button id="up">⬆️</button><div class="empty"></div><button id="left">⬅️</button><div class="empty"></div><button id="right">➡️</button><div class="empty"></div><button id="down">⬇️</button><div class="empty"></div></div></div>';
-  document.body.insertAdjacentHTML('beforeend', padHtml);
-  ['up','down','left','right'].forEach(id => document.getElementById(id).addEventListener('click', ()=>{ if(id==='up') setDir(0,-1); if(id==='down') setDir(0,1); if(id==='left') setDir(-1,0); if(id==='right') setDir(1,0); }));
 
   fit();
 })();
