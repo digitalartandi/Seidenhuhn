@@ -27,8 +27,8 @@
   #uiBar{ position:relative; border-top:2px solid #caa27a; background:url('wood.webp') center/cover no-repeat; display:flex; justify-content:center; align-items:center; padding:.2rem 0 calc(.3rem + env(safe-area-inset-bottom)); }
   #uiBar::before{ content:''; position:absolute; inset:0; background:rgba(255,255,255,.14); pointer-events:none; }
 
-  .pad{ position:relative; z-index:1; display:grid; grid-template-columns:60px 60px 60px; grid-template-rows:60px 60px 60px; gap:.22rem; }
-  .pad button{ width:60px; height:60px; border-radius:12px; border:none; background:#fff; border:2px solid #d7efe0; box-shadow:0 3px 0 #c7e5d3; font-size:1rem; }
+  .pad{ position:relative; z-index:1; display:grid; grid-template-columns:46px 46px 46px; grid-template-rows:46px 46px 46px; gap:.22rem; }
+  .pad button{ width:46px; height:46px; border-radius:12px; border:none; background:#fff; border:2px solid #d7efe0; box-shadow:0 3px 0 #c7e5d3; font-size:1rem; }
   .pad .empty{ visibility:hidden; }
 
   /* Startscreen (ohne Partikel, nur Button) */
@@ -42,29 +42,16 @@
   #play:active{ transform:translateY(2px); box-shadow:0 4px 0 #d85d37; }
 
   footer{ padding: .1rem .65rem .45rem; text-align:center; font-size:.85rem; color:#4f6b50; }
-
-  /* minimal/compact header */
-  header{ justify-content:space-between; }
-  .hud{ flex-wrap:nowrap; gap:.35rem; }
-  .hud .pill{ padding:.12rem .44rem; font-size:clamp(.85rem,2.5vw,1rem); }
-  #soundBtn{ margin-left:auto; }
-
-  /* game over overlay */
-  #over{ position:fixed; inset:0; z-index:9999; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.45); }
-  #over .card{ background:#fff; color:var(--ink); border-radius:18px; padding:1rem 1.2rem; width:min(92vw,460px); box-shadow:0 30px 80px rgba(0,0,0,.2); text-align:center; }
-  #over h3{ margin:.2rem 0 .6rem; }
-  .row{ display:flex; gap:.6rem; justify-content:center; flex-wrap:wrap; }
-  .btn{ padding:.7rem 1.1rem; border-radius:12px; border:2px solid #cde9d1; background:#f8fffb; font-weight:700; }
-  .btn.primary{ background:#43a047; border-color:#2e7d32; color:#fff; }
-  .btn.ghost{ background:#fff; }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
     <div class="hud">
-      <div class="pill">P: <span id="score">0</span></div>
-      <span id="level" hidden>1</span><span id="hi" hidden>0</span><button id="soundBtn" class="iconbtn" title="Sound an/aus" aria-label="Sound umschalten">🔊</button>
+      <div class="pill">Punkte: <span id="score">0</span></div>
+      <div class="pill">Level: <span id="level">1</span></div>
+      <div class="pill">Highscore: <span id="hi">0</span></div>
+      <button id="soundBtn" class="iconbtn" title="Sound an/aus" aria-label="Sound umschalten">🔊</button>
       <button id="restartBtn" class="iconbtn" title="Neu starten" aria-label="Neu starten">🔄</button>
     </div>
   </header>
@@ -95,7 +82,7 @@
 <div id="over">
   <div class="card">
     <h3>Spiel vorbei 💫</h3>
-    <p><strong>P:</strong> <span id="fScore">0</span> · <strong>Highscore:</strong> <span id="fHi">0</span></p>
+    <p><strong>Punkte:</strong> <span id="fScore">0</span> · <strong>Highscore:</strong> <span id="fHi">0</span></p>
     <div class="row">
       <button class="btn primary" id="again">🔁 Nochmal</button>
       <button class="btn ghost" id="menu">🏁 Start</button>
@@ -113,10 +100,7 @@
   let nextHen = 1;
   let soundOn = true;
 
-  let nextWorm = 0;
-function playHen2(){ if(!soundOn) return; try{ hen2Sfx.currentTime=0; hen2Sfx.play(); }catch(e){} }
-function playWormAlt(){ if(!soundOn) return; try{ const s=(nextWorm===0?cornSfx:hen1Sfx); nextWorm=1-nextWorm; s.currentTime=0; s.play(); }catch(e){} }
-async function tryPlayMusic(){ try{ await music.play(); }catch(e){ /* Autoplay evtl. blockiert – startet beim ersten Tap */ } }
+  async function tryPlayMusic(){ try{ await music.play(); }catch(e){ /* Autoplay evtl. blockiert – startet beim ersten Tap */ } }
   function playCorn(){ if(!soundOn) return; try{ cornSfx.currentTime=0; cornSfx.play(); }catch(e){} }
   function playHen(){ if(!soundOn) return; try{ const s = (nextHen===1?hen1Sfx:hen2Sfx); nextHen = 3-nextHen; s.currentTime=0; s.play(); }catch(e){} }
 
@@ -147,7 +131,7 @@ async function tryPlayMusic(){ try{ await music.play(); }catch(e){ /* Autoplay e
     last: 0, mover: 0, running: false,
     hi: parseInt(localStorage.getItem('hh_hi')||'0',10)
   };
-  var _hi=document.getElementById('hi'); if(_hi) _hi.textContent = state.hi;
+  document.getElementById('hi').textContent = state.hi;
 
   const wormImg = new Image(); wormImg.src = 'worm.webp';
   const henImg  = new Image(); henImg.src  = 'hen.webp';
@@ -182,7 +166,7 @@ async function tryPlayMusic(){ try{ await music.play(); }catch(e){ /* Autoplay e
   }
   function spawnItem(){
     // 88% grain, 10% worm, 2% gold
-    const r=Math.random(); const type = r<0.88?'grain':(r<0.98?'worm':'gold');
+    const r=Math.random(); const type = r<0.93?'grain':(r<0.98?'worm':'gold');
     let x,y,tries=0; do{
       x=Math.floor(Math.random()*state.cols);
       y=Math.floor(Math.random()*state.rows);
@@ -207,12 +191,11 @@ async function tryPlayMusic(){ try{ await music.play(); }catch(e){ /* Autoplay e
       if(it && it.x===nx && it.y===ny){
         let add=10; if(it.type==='worm') add=50; if(it.type==='gold') add=50;
         state.score+=add; document.getElementById('score').textContent=state.score;
-        /* SFX: Korn => immer Huhn2; Wurm => Corn/Huhn1 im Wechsel */
-        if(it.type==='grain'){ playHen2(); }
-        else if(it.type==='worm'){ playWormAlt(); }
-        else { playCorn(); }
-        if(state.score>state.hi){ state.hi=state.score; localStorage.setItem('hh_hi', String(state.hi)); var _hi2=document.getElementById('hi'); if(_hi2) _hi2.textContent = state.hi; }
-        if(state.score%50===0){ state.level++; var _lv=document.getElementById('level'); if(_lv) _lv.textContent=state.level; state.speed = Math.min(8, state.speed + 0.25); }
+        // SFX-Regeln: Korn -> Corn (meistens), selten Huhn; Wurm -> immer Huhn
+        if(it.type==='worm') playHen();
+        else if(Math.random()<0.05) playHen(); else playCorn();
+        if(state.score>state.hi){ state.hi=state.score; localStorage.setItem('hh_hi', String(state.hi)); document.getElementById('hi').textContent=state.hi; }
+        if(state.score%50===0){ state.level++; document.getElementById('level').textContent=state.level; state.speed = Math.min(8, state.speed + 0.25); }
         state.items[i]=spawnItem();
       }
     }
@@ -251,7 +234,7 @@ async function tryPlayMusic(){ try{ await music.play(); }catch(e){ /* Autoplay e
   }
 
   function drawHen(x,y){
-    const g=state.grid; const size=Math.min(g*1.7, g*1.2+20);
+    const g=state.grid; const size=Math.min(g*2.0, g*1.2+24);
     const px=x*g+(g-size)/2, py=y*g+(g-size)/2;
     const img=henImg;
     if(img.complete){ ctx.save(); ctx.shadowColor='rgba(0,0,0,.18)'; ctx.shadowBlur=8; ctx.drawImage(img, px, py, size, size); ctx.restore(); }
@@ -279,7 +262,7 @@ async function tryPlayMusic(){ try{ await music.play(); }catch(e){ /* Autoplay e
   // Start / Buttons
   document.getElementById('again').addEventListener('click', ()=>{ document.getElementById('over').style.display='none'; reset(); fit(); state.running=true; state.last=0; state.mover=0; requestAnimationFrame(loop); });
   document.getElementById('menu').addEventListener('click', ()=>{ document.getElementById('over').style.display='none'; document.getElementById('startFS').style.display='flex'; });
-  document.getElementById('play').addEventListener('pointerdown', ()=>{ document.getElementById('startFS').style.display='none'; reset(); fit(); state.running=true; state.last=0; state.mover=0; requestAnimationFrame(loop); if(soundOn) }, {passive:true});
+  document.getElementById('play').addEventListener('pointerdown', ()=>{ document.getElementById('startFS').style.display='none'; reset(); fit(); state.running=true; state.last=0; state.mover=0; requestAnimationFrame(loop); if(soundOn) tryPlayMusic(); }, {passive:true});
   document.getElementById('restartBtn').addEventListener('click', ()=>{ reset(); fit(); state.running=true; state.last=0; state.mover=0; requestAnimationFrame(loop); });
 
   // Sound-Toggle
@@ -287,6 +270,8 @@ async function tryPlayMusic(){ try{ await music.play(); }catch(e){ /* Autoplay e
   sb.addEventListener('click', ()=>{ soundOn=!soundOn; sb.textContent = soundOn?'🔊':'🔇'; try{ if(soundOn) music.play(); else music.pause(); }catch(e){} });
 
   // Musik sofort im Startscreen versuchen
+  tryPlayMusic();
+
   // On-screen pad
   document.getElementById('pad').addEventListener('pointerdown', (e)=>{ const b=e.target.closest('button'); if(!b) return; const [x,y]=b.getAttribute('data-d').split(',').map(Number); setDir(x,y); });
 
