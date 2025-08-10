@@ -11,9 +11,9 @@
   *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
   html, body{ height:100%; margin:0; background:var(--bg); color:var(--ink); font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
   #app{ position:fixed; inset:0; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display:grid; grid-template-rows:auto 1fr auto; gap:0; }
-  header{ display:flex; gap:.5rem; align-items:center; padding:.35rem .65rem; }
-  .hud{ display:flex; gap:.4rem; font-weight:800; flex-wrap:wrap; align-items:center; }
-  .pill{ background:var(--glass); border:2px solid #cde9d1; border-radius:999px; padding:.22rem .55rem; box-shadow:0 4px 16px rgba(0,0,0,.05); }
+  header{display:flex;align-items:center;justify-content:space-between;padding:.25rem .5rem;}
+  .hud{display:flex;gap:.4rem;align-items:center;}
+  .pill{background:var(--glass);border:2px solid #cde9d1;border-radius:14px;padding:.12rem .45rem;font-weight:800;}
   .iconbtn{ border:none; border-radius:12px; background:#fff; border:2px solid #cfe7d3; width:40px; height:40px; font-size:1.1rem; box-shadow:0 3px 0 #c7e5d3; }
   .iconbtn:active{ transform:translateY(1px); box-shadow:0 2px 0 #c7e5d3; }
 
@@ -43,19 +43,9 @@
 
   footer{ padding: .1rem .65rem .45rem; text-align:center; font-size:.85rem; color:#4f6b50; }
 
-  /* Game Over Overlay */
-  #over{ position:fixed; inset:0; z-index:9998; display:none; align-items:center; justify-content:center;
-         background:rgba(0,0,0,.45); padding: env(safe-area-inset-top) .8rem env(safe-area-inset-bottom); }
-  #over .card{ background:#fff; border-radius:18px; padding:1rem 1.2rem; width:min(480px, 92vw);
-               box-shadow:0 10px 30px rgba(0,0,0,.25); text-align:center; }
-  #over .row{ display:flex; gap:.6rem; justify-content:center; margin-top:.6rem; }
-  #over .btn{ font-weight:700; padding:.7rem 1rem; border-radius:14px; border:none; }
-  #over .btn.primary{ background:#43a047; color:#fff; }
-  #over .btn.ghost{ background:#eef6f0; color:#1d2b1d; }
-
   /* Layout polish: keep stats left, controls right */
-  header{ justify-content: space-between; }
-  .hud{ width:100%; }
+  header{display:flex;align-items:center;justify-content:space-between;padding:.25rem .5rem;}
+  .hud{display:flex;gap:.4rem;align-items:center;}
   .hud > button:first-of-type{ margin-left:auto; }
   .hud > button + button{ margin-left:.4rem; }
 
@@ -64,12 +54,12 @@
 <body>
 <div id="app">
   <header>
-    <div class="hud">
-      <div class="pill" id="scorePill">P: <span id="score">0</span></div>
-      <button id="soundBtn" class="iconbtn" title="Sound an/aus" aria-label="Sound umschalten">🔊</button>
-      <button id="restartBtn" class="iconbtn" title="Neu starten" aria-label="Neu starten">🔄</button>
-    </div>
-  </header>
+  <div class="hud">
+    <div class="pill">P: <span id="score">0</span></div>
+    <button id="soundBtn" class="iconbtn" title="Sound an/aus" aria-label="Sound umschalten">🔊</button>
+    <button id="restartBtn" class="iconbtn" title="Neu starten" aria-label="Neu starten">🔄</button>
+  </div>
+</header>
 
   <section id="playArea">
     <div class="canvasFrame">
@@ -112,6 +102,10 @@
   const hen2Sfx = new Audio('./Huhn2.mp3'); hen2Sfx.volume = 0.9;
   let nextHen = 1;
   let soundOn = true;
+  let nextWorm = 0;
+  function playHen2(){ if(!soundOn) return; try{ hen2Sfx.currentTime=0; hen2Sfx.play(); }catch(e){} }
+  function playWormAlt(){ if(!soundOn) return; try{ const sfx = (nextWorm===0?cornSfx:hen1Sfx); nextWorm=1-nextWorm; sfx.currentTime=0; sfx.play(); }catch(e){} }
+
 
   async function tryPlayMusic(){ try{ await music.play(); }catch(e){ /* Autoplay evtl. blockiert – startet beim ersten Tap */ } }
   function playCorn(){ if(!soundOn) return; try{ cornSfx.currentTime=0; cornSfx.play(); }catch(e){} }
@@ -273,9 +267,9 @@
   }
 
   // Start / Buttons
-  document.getElementById('again').addEventListener('click', ()=>{ document.getElementById('over').style.display='none'; reset(); fit(); state.running=true; state.last=0; state.mover=0; requestAnimationFrame(loop); });
-  document.getElementById('menu').addEventListener('click', ()=>{ document.getElementById('over').style.display='none'; document.getElementById('startFS').style.display='flex'; });
-  document.getElementById('play').addEventListener('click', () => { try{ music.muted=false; music.currentTime=0; music.play().catch(()=>{});}catch(e){}  document.getElementById('startFS').style.display='none'; reset(); fit(); state.running=true; state.last=0; state.mover=0; requestAnimationFrame(loop); if(soundOn) tryPlayMusic(); }, {passive:true});
+  document.getElementById('again').addEventListener('click', ()=>{ document.getElementById('over').style.display='none'; reset(); fit(); state.running=true; window.requestAnimationFrame(loop); });reset(); fit(); state.running=true; state.last=0; state.mover=0; requestAnimationFrame(loop); });
+  document.getElementById('menu').addEventListener('click', ()=>{ document.getElementById('over').style.display='none'; document.getElementById('startFS').style.display='block'; });document.getElementById('startFS').style.display='flex'; });
+  document.getElementById('play').addEventListener('pointerdown', ()=>{ document.getElementById('startFS').style.display='none'; reset(); fit(); state.running=true; state.last=0; state.mover=0; requestAnimationFrame(loop); if(soundOn)  }, {passive:true});
   document.getElementById('restartBtn').addEventListener('click', ()=>{ reset(); fit(); state.running=true; state.last=0; state.mover=0; requestAnimationFrame(loop); });
 
   // Sound-Toggle
@@ -283,7 +277,7 @@
   sb.addEventListener('click', ()=>{ soundOn=!soundOn; sb.textContent = soundOn?'🔊':'🔇'; try{ if(soundOn) music.play(); else music.pause(); }catch(e){} });
 
   // Musik sofort im Startscreen versuchen
-  tryPlayMusic();
+  
 
   // On-screen pad
   document.getElementById('pad').addEventListener('pointerdown', (e)=>{ const b=e.target.closest('button'); if(!b) return; const [x,y]=b.getAttribute('data-d').split(',').map(Number); setDir(x,y); });
