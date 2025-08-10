@@ -279,7 +279,7 @@ async function tryPlayMusic(){ try{ await music.play(); }catch(e){ /* Autoplay e
   // Start / Buttons
   document.getElementById('again').addEventListener('click', ()=>{ document.getElementById('over').style.display='none'; reset(); fit(); state.running=true; state.last=0; state.mover=0; requestAnimationFrame(loop); });
   document.getElementById('menu').addEventListener('click', ()=>{ document.getElementById('over').style.display='none'; document.getElementById('startFS').style.display='flex'; });
-  document.getElementById('play').addEventListener('pointerdown', ()=>{ document.getElementById('startFS').style.display='none'; reset(); fit(); state.running=true; state.last=0; state.mover=0; requestAnimationFrame(loop); if(soundOn) }, {passive:true});
+  document.getElementById('play').addEventListener('pointerdown', ()=>{ document.getElementById('startFS').style.display='none'; reset(); fit(); state.running=true; state.last=0; state.mover=0; requestAnimationFrame(loop); if(soundOn) tryPlayMusic(); }, {passive:true});
   document.getElementById('restartBtn').addEventListener('click', ()=>{ reset(); fit(); state.running=true; state.last=0; state.mover=0; requestAnimationFrame(loop); });
 
   // Sound-Toggle
