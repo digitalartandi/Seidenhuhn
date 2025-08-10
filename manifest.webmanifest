@@ -1,9 +1,21 @@
 {
   "name": "Hühnerhof‑Hüpfer",
-  "short_name": "Hühner-Hüpfer",
-  "start_url": "./seidenhuhn.html",
+  "short_name": "Hühnerhof",
+  "start_url": "seidenhuhn.html",
   "display": "standalone",
   "background_color": "#e8f5e9",
   "theme_color": "#c5e1a5",
-  "icons": []
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }
